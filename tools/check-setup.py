@@ -142,8 +142,8 @@ if goirl:
     for b in bats:
         t=(goirl/b).read_text(encoding="utf-8",errors="ignore")
         if "go-irl-windows.exe" in t: bad(f"{b}: verweist noch auf 'go-irl-windows.exe' - muss 'go-irl.exe' sein")
-        if "-srtla-port=53128" in t: ok(f"{b}: Port 53128 ok")
-        else: warn(f"{b}: -srtla-port=53128 nicht gefunden")
+        if "-srtla-port=" in t: ok(f"{b}: -srtla-port gesetzt")
+        else: warn(f"{b}: -srtla-port nicht gefunden")
         m=re.search(r'-passphrase\s+"([^"]*)"',t)
         if m:
             ph=m.group(1); phrasen[b]=ph

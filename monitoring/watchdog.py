@@ -754,7 +754,7 @@ def autoheal_versuch(art):
             return True
         if art == "goirl":
             # Sicherheitsnetz: kurz vor dem Start nochmal pruefen. Laeuft go-irl
-            # doch (Fehlalarm), KEIN zweites starten -> sonst Port-53128-Streit.
+            # doch (Fehlalarm), KEIN zweites starten -> sonst Port-Streit.
             if goirl_running():
                 return False
             cmd, ordner = _goirl_cmd()
@@ -1152,7 +1152,7 @@ def pruefe_alarme():
             if not st["goirl"]:
                 # Entprellung: erst nach 2 Fehlchecks in Folge (~2 Min) wirklich
                 # heilen. Ein einzelner Aussetzer startet sonst ein zweites go-irl
-                # -> Port-53128-Streit -> Schwarzbild.
+                # -> Port-Streit -> Schwarzbild.
                 _down_count["goirl"] = _down_count.get("goirl", 0) + 1
                 if _down_count["goirl"] >= 2:
                     if autoheal_versuch("goirl"):

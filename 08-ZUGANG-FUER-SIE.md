@@ -125,16 +125,16 @@ Start/Stop) läuft über den **Twitch-Chat** (Datei `07`).
 
 Nach dem Troubleshooting weicht der echte Aufbau von der Anleitung oben ab:
 
-- **Port:** `53127` (UDP) statt 9999 — FritzBox-Portfreigabe zeigt auf den Laptop.
+- **Port:** `DEIN-PORT` (UDP) statt 9999 — FritzBox-Portfreigabe zeigt auf den Laptop.
 - **Keine SRT-Passphrase** — die OBS-Medienquelle nahm sie über die URL nicht an.
   Schutz stattdessen: zufälliger Port + geheimer DuckDNS-Name.
 - **DynDNS: DuckDNS statt MyFRITZ!** Grund: Der myfritz-Name liefert auch eine
   IPv6-Adresse aus, und Handys im Mobilfunk bevorzugen IPv6 — dort funktioniert
   die Portweiterleitung aber nicht. Der DuckDNS-Name liefert NUR IPv4 (die
   FritzBox haelt ihn selbst aktuell, Reiter Internet → Freigaben → DynDNS).
-- **OBS-Eingang:**  `srt://0.0.0.0:53127?mode=listener&latency=2000000`
+- **OBS-Eingang:**  `srt://0.0.0.0:DEIN-PORT?mode=listener&latency=2000000`
 - **Moblin-URL (ihre einzige Einstellung):**
-  `srt://DEIN-NAME.duckdns.org:53127?latency=2000000`  (Stream-ID: `live`)
+  `srt://DEIN-NAME.duckdns.org:DEIN-PORT?latency=2000000`  (Stream-ID: `live`)
 
 **Merkzettel fuer spaeter:**
 - Wenn der Laptop ans **LAN-Kabel** kommt, bekommt er eine neue lokale IP →

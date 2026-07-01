@@ -6,7 +6,7 @@ REM  Fuer den Autostart spaeter die normale start_goirl.bat verwenden.
 REM ==========================================================================
 cd /d "%~dp0"
 echo Starte go-irl (SRTLA-Empfaenger) - Testmodus, Fenster offen lassen!
-go-irl.exe -mode=standalone -srtla-port=53128 -passphrase "DEINE_PASSPHRASE_HIER"
+go-irl.exe -mode=standalone -srtla-port=DEIN-PORT2 -passphrase "DEINE_PASSPHRASE_HIER"
 echo.
 echo go-irl wurde beendet. Taste druecken zum Schliessen.
 pause >nul

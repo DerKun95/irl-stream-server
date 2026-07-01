@@ -26,14 +26,14 @@ einfache Windows-exe – kein Docker, kein Linux).
 
 ## 13.2 – FritzBox: neuen Port freigeben
 
-go-irl lauscht bei uns auf Port **53128** (eigener Zufallsport statt Standard
+go-irl lauscht bei uns auf Port **DEIN-PORT2** (eigener Zufallsport statt Standard
 5000 – gleiche Schutz-Idee wie beim SRT-Port).
 
 1. FritzBox → Internet → Freigaben → Portfreigaben → beim Laptop-Eintrag die
    Freigaben bearbeiten → **neue Portfreigabe**:
    - Protokoll: **UDP**
-   - Port (von/bis/an Gerät): **53128**
-2. Übernehmen. *(Die alte 53127-Freigabe bleibt als Plan B bestehen!)*
+   - Port (von/bis/an Gerät): **DEIN-PORT2**
+2. Übernehmen. *(Die alte DEIN-PORT-Freigabe bleibt als Plan B bestehen!)*
 
 ## 13.3 – OBS umstellen
 
@@ -70,9 +70,9 @@ nicht mehr ins Internet, sondern auf den eigenen Rechner:
 
 1. Stream-URL ändern auf:
    ```
-   srtla://DEIN-NAME.duckdns.org:53128
+   srtla://DEIN-NAME.duckdns.org:DEIN-PORT2
    ```
-   (statt `srt://...:53127` – beachte: **srtla** und der **neue Port**!)
+   (statt `srt://...:DEIN-PORT` – beachte: **srtla** und der **neue Port**!)
 2. **Bonding aktivieren:** In Moblin sind unter den Stream-Einstellungen die
    Netzwerk-Pfade wählbar – **Mobilfunk + WLAN** erlauben. Sobald beide
    verfügbar sind, sendet Moblin über beide gleichzeitig.
@@ -90,8 +90,8 @@ nicht mehr ins Internet, sondern auf den eigenen Rechner:
 ## Plan B (Rückfallebene)
 
 Der alte Direktweg bleibt funktionsfähig: Moblin-Profil mit
-`srt://DEIN-NAME.duckdns.org:53127` + OBS-Quelle zurück auf
-`srt://0.0.0.0:53127?mode=listener&latency=2000000`. Am besten in Moblin
+`srt://DEIN-NAME.duckdns.org:DEIN-PORT` + OBS-Quelle zurück auf
+`srt://0.0.0.0:DEIN-PORT?mode=listener&latency=2000000`. Am besten in Moblin
 **zwei Stream-Profile** anlegen („Bonding“ und „Direkt“), dann ist der Wechsel
 unterwegs ein Fingertipp.
 
@@ -135,7 +135,7 @@ direkten OBS-Weg).
 2. In **beiden** Start-Dateien (`start_goirl.bat` + `start_goirl_TEST.bat`) in der
    go-irl-Zeile den Platzhalter ersetzen:
    ```
-   go-irl.exe -mode=standalone -srtla-port=53128 -passphrase "DEINE_PASSPHRASE_HIER"
+   go-irl.exe -mode=standalone -srtla-port=DEIN-PORT2 -passphrase "DEINE_PASSPHRASE_HIER"
    ```
    -> `DEINE_PASSPHRASE_HIER` durch die echte Passphrase ersetzen (in Anfuehrungszeichen lassen).
 3. In **Moblin** (Handy der Streamerin): im go-irl-Stream-Profil das Feld
