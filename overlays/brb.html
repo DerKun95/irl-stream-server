@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>BRB Overlay (mit Clip-Fenster)</title>
+<script>
+// ============================================================
+//  HIER ANPASSEN:
+const KANALNAME   = "DEIN_KANAL";
+const ZEILE_GROSS = "KURZE PAUSE";
+const ZEILE_KLEIN = "bin gleich zurück 🐾";
+const FENSTER_TEXT = "☆ solange: ihre besten Momente ☆";
+// ============================================================
+</script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:1920px; height:1080px; overflow:hidden; background:transparent;
+              font-family:"Ink Free","Segoe Print","Comic Sans MS",cursive; }
+
+  /* Deko-Ebene mit LOCH rechts: dort scheinen die Clips durch.
+     Loch: x=760  y=214  Breite=1064  Hoehe=600  (16:9) */
+  #deko { position:absolute; inset:0;
+    -webkit-mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+    -webkit-mask-size: 100% 100%, 1064px 600px;
+    -webkit-mask-position: 0 0, 760px 214px;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-composite: xor;
+    mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+    mask-size: 100% 100%, 1064px 600px;
+    mask-position: 0 0, 760px 214px;
+    mask-repeat: no-repeat;
+    mask-composite: exclude; }
+
+  #bg { position:absolute; inset:0;
+        background:linear-gradient(115deg,#f6cfd9,#e9c4ef,#d9bdf4,#f3d2c8,#eec9ec);
+        background-size:300% 300%; animation:wandern 26s ease infinite; }
+  @keyframes wandern { 0%{background-position:0% 50%} 50%{background-position:100% 50%}
+                       100%{background-position:0% 50%} }
+
+  .wolke { position:absolute; background:rgba(255,255,255,.5); border-radius:50%;
+           filter:blur(55px); animation:treiben linear infinite; }
+  @keyframes treiben { from{transform:translateX(-500px)} to{transform:translateX(2400px)} }
+
+  .stern { position:absolute; color:#fff;
+           animation:funkeln ease-in-out infinite; }
+  @keyframes funkeln { 0%,100%{ opacity:.45; transform:rotate(var(--rot)) scale(1); }
+                       50%{ opacity:1; transform:rotate(var(--rot)) scale(1.12); } }
+
+  /* weisser Kritzel-Rahmen um das Clip-Fenster (liegt UEBER dem Loch-Rand) */
+  #rahmen { position:absolute; left:752px; top:206px; width:1080px; height:616px;
+            border:7px solid #fff; border-radius:18px; transform:rotate(.4deg);
+            box-shadow:0 0 24px rgba(255,140,200,.6), 0 5px 0 rgba(214,140,190,.45),
+                       inset 0 0 14px rgba(255,255,255,.35); }
+  #rahmen .ecke { position:absolute; color:#fff; font-size:54px; }
+  #fenstertext { position:absolute; left:752px; top:836px; width:1080px;
+                 text-align:center; font-size:34px; color:#fff; letter-spacing:3px;
+                 text-shadow:2px 3px 0 rgba(214,140,190,.5), 0 0 16px rgba(255,255,255,.7); }
+
+  /* linke Text-Spalte */
+  #links { position:absolute; left:0; top:0; width:740px; height:1080px;
+           display:flex; flex-direction:column; align-items:center;
+           justify-content:center; text-align:center; padding:0 30px; }
+
+  #kanal { font-size:44px; font-weight:bold; letter-spacing:8px; color:#fff;
+           text-transform:lowercase; margin-bottom:30px;
+           text-shadow:2px 3px 0 rgba(214,140,190,.55), 0 0 24px rgba(255,255,255,.8); }
+
+  #gross { font-size:108px; font-weight:bold; color:#fff; line-height:1.05;
+           letter-spacing:4px; transform:rotate(-1.5deg);
+           text-shadow:3px 5px 0 rgba(214,140,190,.6), 0 0 30px rgba(255,255,255,.9),
+                       0 0 70px rgba(245,180,230,.8);
+           animation:atmen 2.8s ease-in-out infinite; }
+  @keyframes atmen { 0%,100%{ transform:scale(1) rotate(-1.5deg); }
+                     50%{ transform:scale(1.03) rotate(.5deg); } }
+
+  #klein { margin-top:34px; font-size:42px; color:#fff; letter-spacing:2px;
+           text-shadow:2px 3px 0 rgba(214,140,190,.5), 0 0 16px rgba(255,255,255,.7); }
+
+  /* kraeftiger Ladebalken links */
+  #balken { margin-top:50px; width:480px; height:22px; border-radius:12px;
+            background:rgba(255,255,255,.4); border:3px solid rgba(255,255,255,.95);
+            overflow:hidden;
+            box-shadow:0 0 20px rgba(255,130,200,.85), 0 4px 0 rgba(214,140,190,.5); }
+  #balken div { width:42%; height:100%; border-radius:9px;
+                background:linear-gradient(90deg,#ff7fc3,#ff4fb0,#d36ff0);
+                box-shadow:0 0 16px rgba(255,80,180,.95);
+                animation:laufen 2.1s ease-in-out infinite; }
+  @keyframes laufen { 0%{transform:translateX(-130%)} 100%{transform:translateX(330%)} }
+
+  /* der laufende Hund */
+  #hund { position:absolute; bottom:22px; left:-140px; font-size:80px;
+          animation:gassi 26s linear infinite;
+          filter:drop-shadow(0 4px 6px rgba(150,90,140,.45)); }
+  #hund span { display:inline-block; animation:hoppeln .5s ease-in-out infinite; }
+  @keyframes gassi { from{ left:-140px; } to{ left:2000px; } }
+  @keyframes hoppeln { 0%,100%{ transform:scaleX(-1) translateY(0) rotate(-3deg); }
+                       50%{ transform:scaleX(-1) translateY(-8px) rotate(3deg); } }
+
+  .spur { position:absolute; bottom:32px; font-size:32px; opacity:.85;
+          animation:verblassen 4.5s ease-out forwards; }
+  @keyframes verblassen { to{ opacity:0; } }
+</style>
+</head>
+<body>
+  <!-- alles in #deko bekommt das Loch fuer die Clips -->
+  <div id="deko">
+    <div id="bg"></div>
+  </div>
+
+  <div id="rahmen">
+    <div class="ecke" style="left:-30px; top:-38px; transform:rotate(-18deg)">✩</div>
+    <div class="ecke" style="right:-32px; top:-30px; transform:rotate(14deg)">☆</div>
+    <div class="ecke" style="left:-34px; bottom:-36px; transform:rotate(10deg)">☆</div>
+    <div class="ecke" style="right:-28px; bottom:-40px; transform:rotate(-12deg)">✧</div>
+  </div>
+  <div id="fenstertext"></div>
+
+  <div id="links">
+    <div id="kanal"></div>
+    <div id="gross"></div>
+    <div id="klein"></div>
+    <div id="balken"><div></div></div>
+  </div>
+
+  <div id="hund"><span>🐕</span></div>
+
+<script>
+  document.getElementById("kanal").textContent = KANALNAME;
+  document.getElementById("gross").textContent = ZEILE_GROSS;
+  document.getElementById("klein").textContent = ZEILE_KLEIN;
+  document.getElementById("fenstertext").textContent = FENSTER_TEXT;
+
+  // Wolken + Sterne nur in der Deko-Ebene (nicht ueber den Clips)
+  const deko = document.getElementById("deko");
+  for (let i = 0; i < 6; i++) {
+    const w = document.createElement("div");
+    w.className = "wolke";
+    w.style.width  = (380 + Math.random() * 420) + "px";
+    w.style.height = (130 + Math.random() * 160) + "px";
+    w.style.top    = Math.random() * 950 + "px";
+    w.style.animationDuration = (60 + Math.random() * 70) + "s";
+    w.style.animationDelay = (-Math.random() * 90) + "s";
+    deko.appendChild(w);
+  }
+  const sternZeichen = ["☆","✩","✧"];
+  for (let i = 0; i < 20; i++) {
+    const s = document.createElement("div");
+    s.className = "stern";
+    s.textContent = sternZeichen[Math.floor(Math.random() * sternZeichen.length)];
+    s.style.fontSize = (30 + Math.random() * 90) + "px";
+    s.style.left = Math.random() * 1840 + "px";
+    s.style.top  = Math.random() * 1000 + "px";
+    s.style.setProperty("--rot", (Math.random() * 50 - 25) + "deg");
+    s.style.animationDuration = (2.5 + Math.random() * 4) + "s";
+    s.style.animationDelay = (-Math.random() * 5) + "s";
+    deko.appendChild(s);
+  }
+
+  // Pfotenspur hinter dem Hund
+  const hund = document.getElementById("hund");
+  setInterval(() => {
+    const x = hund.getBoundingClientRect().left;
+    if (x < 0 || x > 1880) return;
+    const p = document.createElement("div");
+    p.className = "spur";
+    p.textContent = "🐾";
+    p.style.left = (x + 14) + "px";
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 4600);
+  }, 850);
+</script>
+</body>
+</html>

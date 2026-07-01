@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Stream-Ende Overlay</title>
+<script>
+// ============================================================
+//  HIER ANPASSEN:
+const KANALNAME   = "DEIN_KANAL";
+const ZEILE_GROSS = "SO, FEIERABEND!";
+const ZEILE_KLEIN = "ihr könnt jetzt nach Hause gehen 😏";
+
+// Ihre legendaeren Zitate (rotieren automatisch):
+const ZITATE = [
+  "Am Freitag ist ja schon wieder Freitag.",
+  "Hans, ich werde dich sowas von ficken!",
+  "Ist das in Ordnung, wenn ich morgen Abend einfach bei euch selber zum Pizzaessen einlade?",
+  "Das ist nicht so ein Boot Boot, sondern ein Boot.",
+];
+const ZITAT_LABEL = "— irgendwann mal wieder live";
+const WECHSEL_SEKUNDEN = 7;
+// ============================================================
+</script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:1920px; height:1080px; overflow:hidden;
+              font-family:"Ink Free","Segoe Print","Comic Sans MS",cursive; }
+
+  #bg { position:absolute; inset:0;
+        background:linear-gradient(150deg,#e9c4ef,#d9bdf4,#f6cfd9,#eec9ec);
+        background-size:300% 300%; animation:wandern 30s ease infinite; }
+  @keyframes wandern { 0%{background-position:0% 0%} 50%{background-position:100% 100%}
+                       100%{background-position:0% 0%} }
+
+  .wolke { position:absolute; background:rgba(255,255,255,.5); border-radius:50%;
+           filter:blur(55px); animation:treiben linear infinite; }
+  @keyframes treiben { from{transform:translateX(-500px)} to{transform:translateX(2400px)} }
+
+  .stern { position:absolute; color:#fff; animation:funkeln ease-in-out infinite; }
+  @keyframes funkeln { 0%,100%{ opacity:.4; transform:rotate(var(--rot)) scale(1); }
+                       50%{ opacity:1; transform:rotate(var(--rot)) scale(1.15); } }
+
+  #mitte { position:absolute; inset:0; display:flex; flex-direction:column;
+           align-items:center; justify-content:center; text-align:center; }
+
+  #gross { font-size:124px; font-weight:bold; color:#fff; letter-spacing:5px;
+           transform:rotate(-1.5deg);
+           text-shadow:3px 5px 0 rgba(214,140,190,.6), 0 0 34px rgba(255,255,255,.9),
+                       0 0 80px rgba(245,180,230,.8);
+           animation:zappeln 3.2s ease-in-out infinite; }
+  @keyframes zappeln { 0%,100%{ transform:rotate(-1.5deg) scale(1); }
+                       50%{ transform:rotate(1deg) scale(1.02); } }
+
+  #klein { margin-top:24px; font-size:46px; color:#fff; letter-spacing:3px;
+           text-shadow:2px 3px 0 rgba(214,140,190,.5), 0 0 18px rgba(255,255,255,.7); }
+
+  /* Zitate-Box */
+  #zitatbox { margin-top:64px; width:1150px; min-height:230px; padding:38px 56px;
+              background:rgba(255,255,255,.42); border:3px solid rgba(255,255,255,.95);
+              border-radius:28px; transform:rotate(.6deg);
+              box-shadow:0 0 26px rgba(255,140,200,.55), 0 6px 0 rgba(214,140,190,.4);
+              display:flex; flex-direction:column; justify-content:center; }
+  #zitatkopf { font-size:30px; color:#9b5f93; letter-spacing:4px; margin-bottom:14px; }
+  #zitat { font-size:46px; color:#7a3f74; line-height:1.35;
+           transition:opacity .6s ease; }
+  #zitatlabel { margin-top:16px; font-size:30px; color:#9b5f93; text-align:right;
+                transition:opacity .6s ease; }
+
+  #kanal { margin-top:56px; font-size:44px; font-weight:bold; letter-spacing:9px;
+           color:#fff; text-transform:lowercase;
+           text-shadow:2px 3px 0 rgba(214,140,190,.55), 0 0 26px rgba(255,255,255,.8); }
+
+  /* der laufende Hund */
+  #hund { position:absolute; bottom:26px; left:-140px; font-size:84px;
+          animation:gassi 26s linear infinite;
+          filter:drop-shadow(0 4px 6px rgba(150,90,140,.45)); }
+  #hund span { display:inline-block;
+               animation:hoppeln .5s ease-in-out infinite; }
+  @keyframes gassi { from{ left:-140px; } to{ left:2000px; } }
+  @keyframes hoppeln { 0%,100%{ transform:scaleX(-1) translateY(0) rotate(-3deg); }
+                       50%{ transform:scaleX(-1) translateY(-9px) rotate(3deg); } }
+
+  .spur { position:absolute; bottom:36px; font-size:34px; opacity:.85;
+          animation:verblassen 4.5s ease-out forwards; }
+  @keyframes verblassen { to{ opacity:0; } }
+</style>
+</head>
+<body>
+  <div id="bg"></div>
+  <div id="mitte">
+    <div id="gross"></div>
+    <div id="klein"></div>
+    <div id="zitatbox">
+      <div id="zitatkopf">☆ Dinge, die sie wirklich gesagt hat ☆</div>
+      <div id="zitat"></div>
+      <div id="zitatlabel"></div>
+    </div>
+    <div id="kanal"></div>
+  </div>
+  <div id="hund"><span>🐕</span></div>
+<script>
+  document.getElementById("gross").textContent = ZEILE_GROSS;
+  document.getElementById("klein").textContent = ZEILE_KLEIN;
+  document.getElementById("kanal").textContent = KANALNAME;
+  document.getElementById("zitatlabel").textContent = ZITAT_LABEL;
+
+  // Wolken
+  for (let i = 0; i < 6; i++) {
+    const w = document.createElement("div");
+    w.className = "wolke";
+    w.style.width  = (380 + Math.random() * 420) + "px";
+    w.style.height = (130 + Math.random() * 160) + "px";
+    w.style.top    = Math.random() * 950 + "px";
+    w.style.animationDuration = (60 + Math.random() * 70) + "s";
+    w.style.animationDelay = (-Math.random() * 90) + "s";
+    document.body.insertBefore(w, document.getElementById("mitte"));
+  }
+
+  // Kritzel-Sterne
+  const sternZeichen = ["☆","✩","✧"];
+  for (let i = 0; i < 22; i++) {
+    const s = document.createElement("div");
+    s.className = "stern";
+    s.textContent = sternZeichen[Math.floor(Math.random() * sternZeichen.length)];
+    s.style.fontSize = (30 + Math.random() * 100) + "px";
+    s.style.left = Math.random() * 1840 + "px";
+    s.style.top  = Math.random() * 1000 + "px";
+    s.style.setProperty("--rot", (Math.random() * 50 - 25) + "deg");
+    s.style.animationDuration = (2.5 + Math.random() * 4) + "s";
+    s.style.animationDelay = (-Math.random() * 5) + "s";
+    document.body.insertBefore(s, document.getElementById("mitte"));
+  }
+
+  // Zitate rotieren mit sanftem Ein-/Ausblenden
+  const zEl = document.getElementById("zitat");
+  let letzte = -1;
+  function zeigeZitat() {
+    zEl.style.opacity = 0;
+    setTimeout(() => {
+      // zufaelliges Zitat waehlen, aber nie zweimal dasselbe hintereinander
+      let zi;
+      do { zi = Math.floor(Math.random() * ZITATE.length); }
+      while (ZITATE.length > 1 && zi === letzte);
+      letzte = zi;
+      zEl.textContent = "„" + ZITATE[zi] + "“";
+      zEl.style.opacity = 1;
+    }, 600);
+  }
+  zeigeZitat();
+  setInterval(zeigeZitat, WECHSEL_SEKUNDEN * 1000);
+
+  // Pfotenspur hinter dem Hund
+  const hund = document.getElementById("hund");
+  setInterval(() => {
+    const x = hund.getBoundingClientRect().left;
+    if (x < 0 || x > 1880) return;
+    const p = document.createElement("div");
+    p.className = "spur";
+    p.textContent = "🐾";
+    p.style.left = (x + 14) + "px";
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 4600);
+  }, 850);
+</script>
+</body>
+</html>

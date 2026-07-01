@@ -1,0 +1,42 @@
+# ===== GEHEIMNISSE - NIEMALS hochladen =====
+# Echte Konfiguration mit Tokens/Passwoertern (nur die *.example.ini wird geteilt)
+config.ini
+**/config.ini
+KONFIG-UEBERSICHT.md
+
+# Laufzeit-/Zustandsdateien des Waechters (enthalten Tokens, Schluessel, Daten)
+twitch_token.json
+app_secret.dat
+ort.json
+app_chat.json
+logbuch.jsonl
+streams.jsonl
+verlauf.csv
+
+# Go-irl Start-Dateien koennen eine Passphrase enthalten -> sicherheitshalber lokal halten
+# (Vorlagen liegen als Doku in 13-BONDING-GOIRL.md)
+# goirl/start_goirl*.bat   # auskommentiert: aktuell nur Platzhalter
+
+# ===== Kram / Build =====
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+Thumbs.db
+backups/
+node_modules/
+
+# ===== Nicht ins geteilte Repo: generierte Dokumente / Kanal-spezifisch =====
+*.pdf
+*Stream-Anleitung.html
+overlays/*NVIDIA*
+overlays/*Overlay*.png
+
+# kanal-spezifisch, nicht im Repo
+14-*.md
+15-NAECHSTE-SCHRITTE.md
+idle.flag
+qr-instagram.html
+
+# Eigenstaendige Nebenprojekte - gehoeren nicht ins geteilte Repo
+waesche-bot/

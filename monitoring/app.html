@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#241430">
+<title>Stream-Steuerung</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🐾</text></svg>">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stream">
+<style>
+  :root{--karte:rgba(255,255,255,.10);--text:#f8edf8;--muted:#dcc0e2;
+        --ok:#79e2a8;--warn:#ffc266;--bad:#ff85a6;
+        --twchat-h:600px;--modchat-h:230px;}
+  /* Pro-Bereich-Größe: Klasse s/m/l am jeweiligen .akk (S·M·L in der Überschrift) */
+  /* Steuerung-Knöpfe */
+  #akk-steuer.s .knoepfe button{font-size:15px;padding:13px 8px;}
+  #akk-steuer.l .knoepfe button{font-size:21px;padding:22px 10px;}
+  /* Twitch-Chat */
+  #twchat{height:600px;}
+  #akk-twchat.s #twchat{height:380px;} #akk-twchat.m #twchat{height:600px;} #akk-twchat.l #twchat{height:860px;}
+  /* Mod-Chat (Höhe + Schrift) */
+  #akk-chat.s #chat{height:150px;} #akk-chat.m #chat{height:240px;} #akk-chat.l #chat{height:400px;}
+  #akk-chat.s .msg{font-size:13px;} #akk-chat.l .msg{font-size:17px;}
+  /* Status-Kacheln */
+  #akk-status.s .k .w{font-size:13px;} #akk-status.s .k .t{font-size:10px;}
+  #akk-status.l .k .w{font-size:18px;} #akk-status.l .k .t{font-size:12px;}
+  /* Verlauf-Diagramme */
+  #akk-verlauf.s canvas{max-height:120px;} #akk-verlauf.l canvas{max-height:280px;}
+  /* Logbuch + Historie */
+  #akk-log.s #logbuch,#akk-hist.s #streams{max-height:150px;font-size:12px;}
+  #akk-log.l #logbuch,#akk-hist.l #streams{max-height:420px;font-size:15px;}
+  /* S·M·L-Umschalter in der Überschrift */
+  .grsel{display:inline-flex;gap:3px;margin-left:auto;margin-right:10px;}
+  .grsel button{padding:3px 8px;font-size:11px;font-weight:700;border-radius:8px;
+                background:rgba(255,255,255,.10);color:var(--muted);}
+  .grsel button.aktiv{background:linear-gradient(135deg,#b48ae0,#8a5fd0);color:#fff;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--text);
+       background:linear-gradient(160deg,#1e1230,#2a1535,#3b1a32);background-attachment:fixed;
+       min-height:100svh;padding:16px 14px 40px;}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  h1{font-size:20px;color:#ff9fd0;}
+  #abmelden{display:block;width:100%;text-align:center;font-size:15px;font-weight:700;color:#fff;
+            text-decoration:none;background:linear-gradient(135deg,#ff5fa8,#e0245e);
+            padding:14px;border-radius:14px;margin:24px 0 10px;}
+  #grtoggle{font-size:13px;font-weight:700;color:var(--text);background:rgba(255,255,255,.12);
+            padding:8px 14px;border-radius:10px;}
+  #grtoggle.aktiv{background:linear-gradient(135deg,#b48ae0,#8a5fd0);}
+  body.groessen-aus .grsel{display:none;}
+  #fusstipp{font-size:11px;color:var(--muted);text-align:center;margin:6px 0 0;}
+  #hallo{font-size:13px;color:var(--muted);margin-bottom:14px;}
+  .ampel{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:6px;margin-bottom:6px;}
+  .subhd{font-weight:600;color:var(--muted);font-size:13px;letter-spacing:.3px;margin:10px 2px 4px;text-transform:uppercase;}
+  .k{background:var(--karte);border-radius:10px;padding:6px 8px;}
+  .k .t{font-size:10px;color:var(--muted);line-height:1.15;} .k .w{font-size:14px;font-weight:700;margin-top:1px;}
+  .ok{color:var(--ok);}.warn{color:var(--warn);}.bad{color:var(--bad);}
+  #livezeile{display:flex;align-items:center;gap:10px;background:var(--karte);border-radius:14px;
+             padding:12px 14px;font-size:16px;font-weight:700;margin:10px 0;}
+  .punkt{width:13px;height:13px;border-radius:50%;background:#888;flex:none;}
+  .punkt.an{background:#e0245e;box-shadow:0 0 10px #e0245e;animation:p 1.4s infinite;}
+  @keyframes p{50%{opacity:.45;}}
+  .knoepfe{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
+  button{border:0;border-radius:16px;padding:18px 10px;font-size:18px;font-weight:700;color:#fff;cursor:pointer;}
+  button:active{transform:scale(.97);}
+  .b-standby{background:linear-gradient(135deg,#b48ae0,#8a5fd0);}
+  .b-live{background:linear-gradient(135deg,#ff5fa8,#e0245e);}
+  .b-brb{background:linear-gradient(135deg,#e0a83c,#c07a10);}
+  .b-ende{background:linear-gradient(135deg,#c86fb0,#8a3a6a);}
+  .b-stop{background:linear-gradient(135deg,#8d8da8,#5e5e78);}
+  .b-foto{background:linear-gradient(135deg,#62b6e8,#3a8fd0);}
+  .b-clip{background:linear-gradient(135deg,#9146ff,#7a3fd0);}
+  .b-wake{display:none;width:100%;background:linear-gradient(135deg,#5fd394,#2d9e75);margin-bottom:10px;}
+  .b-idle{display:none;width:100%;background:linear-gradient(135deg,#8a5fd0,#5e3aa0);margin-bottom:10px;}
+  body.idle .knoepfe{display:none;}
+  body.idle #klapp-foto,body.idle #akk-foto{display:none;}
+  body.idle #btnwake{display:block;}
+  .b-rec{background:linear-gradient(135deg,#8d8da8,#5e5e78);}
+  .b-recon{background:linear-gradient(135deg,#ff5fa8,#e0245e)!important;animation:p 1.4s infinite;}
+  #meldung{text-align:center;margin:4px 0;min-height:0;font-weight:600;}
+  #foto{width:100%;border-radius:14px;display:none;margin-top:6px;}
+  #fotohint{background:var(--karte);border-radius:14px;padding:18px;text-align:center;
+            font-size:13px;color:var(--muted);margin-top:6px;}
+  h2{font-size:15px;color:#ff9fd0;margin:18px 0 8px;}
+  h2.klapp{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;
+           background:var(--karte);border-radius:12px;padding:11px 14px;margin:14px 0 8px;}
+  h2.klapp .chev{font-size:19px;line-height:1;color:var(--muted);transition:transform .2s;}
+  h2.klapp.zu{margin-bottom:14px;}
+  h2.klapp.zu .chev{transform:rotate(-90deg);}
+  .akk.zu{display:none;}
+  h2.klapp.sub{font-size:13px;padding:8px 12px;margin:8px 0 6px;background:rgba(255,255,255,.05);}
+  h2.klapp + .akk{margin-top:-2px;}
+  h2.klapp + .akk .knoepfe{margin-top:4px;}
+  #chat{background:var(--karte);border-radius:14px;padding:10px 12px;height:var(--modchat-h);
+        overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
+  #ansicht{display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:12px;color:var(--muted);flex-wrap:wrap;}
+  #ansicht button{padding:6px 12px;font-size:13px;border-radius:10px;background:rgba(255,255,255,.10);color:var(--text);font-weight:600;}
+  #ansicht button.aktiv{background:linear-gradient(135deg,#b48ae0,#8a5fd0);}
+  .msg{font-size:14px;line-height:1.35;}
+  .msg b{color:#ff9fd0;} .msg .z{color:var(--muted);font-size:11px;margin-left:4px;}
+  .badge{display:none;background:var(--bad);color:#fff;font-size:12px;font-weight:700;min-width:20px;height:20px;line-height:20px;text-align:center;border-radius:10px;padding:0 6px;margin-left:8px;vertical-align:middle;}
+  .chatzeile{display:flex;gap:8px;margin-top:8px;}
+  #chatinput{flex:1;padding:12px;border-radius:12px;border:1.5px solid rgba(184,154,234,.5);
+             background:rgba(255,255,255,.06);color:#fff;font-size:16px;}
+  #chatinput:focus{outline:none;border-color:#ff7fc3;}
+  #chatsend{padding:12px 18px;border-radius:12px;background:linear-gradient(135deg,#ff5fa8,#b65fd0);}
+  .twin{width:100%;padding:12px;border-radius:12px;border:1.5px solid rgba(184,154,234,.5);background:rgba(255,255,255,.06);color:#fff;font-size:16px;margin-top:8px;}
+  .twin:focus{outline:none;border-color:#ff7fc3;}
+  #twresults .tr{padding:10px;border-radius:10px;background:rgba(255,255,255,.06);margin-top:6px;cursor:pointer;font-size:15px;}
+  #twverbinden,#twsave{margin-top:10px;padding:13px 18px;border-radius:12px;background:linear-gradient(135deg,#9146ff,#7a3fd0);}
+  .diagramm{background:var(--karte);border-radius:14px;padding:10px;margin-bottom:10px;}
+  canvas{max-height:180px;}
+  #proghint{display:none;background:rgba(255,184,77,.15);color:#ffb84d;border:1px solid #ffb84d;border-radius:12px;padding:9px 12px;font-size:13px;margin-bottom:8px;}
+  #fehlerbalken{display:none;background:var(--bad);color:#fff;border-radius:12px;padding:10px;
+                text-align:center;margin-bottom:10px;font-size:14px;}
+</style>
+</head>
+<body>
+  <header><h1>🐾 Stream-Steuerung</h1><button id="grtoggle" onclick="grLock(!document.body.classList.contains('groessen-aus'))">↔ Größe</button></header>
+  <div id="hallo">…</div>
+  <div id="fehlerbalken"></div>
+
+  <div id="livezeile"><div class="punkt" id="punkt"></div><span id="livetext">–</span><span id="szenebadge" style="margin-left:auto;font-size:14px;font-weight:600;color:#ff9fd0;"></span></div>
+  <button class="b-wake" id="btnwake" onclick="aufwecken()">☀️ Server aufwecken</button>
+  <h2 class="klapp" data-akk="akk-twchat" data-recht="sek-twchat" data-zudefault="1"><span>💬 Twitch-Chat</span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-twchat">
+    <div id="twchathint" class="k" style="font-size:13px;color:var(--muted);">Kein Twitch-Kanal hinterlegt – in der config.ini unter [twitch] „kanal = deinkanal" eintragen.</div>
+    <iframe id="twchat" title="Twitch-Chat" style="display:none;width:100%;border:0;border-radius:14px;"></iframe>
+  </div>
+  <h2 class="klapp" data-akk="akk-chat" data-recht="sek-chat" data-zudefault="1"><span>💬 Mod-Chat<span id="chatbadge" class="badge"></span></span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-chat">
+  <div id="chat"></div>
+  <div class="chatzeile">
+    <input id="chatinput" placeholder="Nachricht an Streamerin &amp; Mods …" maxlength="300">
+    <button id="chatsend" onclick="sende()">Senden</button>
+  </div>
+  </div>
+
+  <h2 class="klapp" data-akk="akk-steuer" data-recht="sek-steuer"><span>🎛 Steuerung</span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-steuer">
+  <div id="meldung"></div>
+  <div class="knoepfe">
+    <button class="b-standby" data-recht="standby" onclick="cmd('standby')">▶ Start (Soon)</button>
+    <button class="b-live" data-recht="live" onclick="cmd('live','Wirklich auf LIVE schalten?')">🔴 Live</button>
+    <button class="b-brb" data-recht="brb" onclick="cmd('brb')">⏸ BRB-Pause</button>
+    <button class="b-ende" data-recht="ende" onclick="cmd('ende')">🏁 Ende-Bild</button>
+    <button class="b-foto" data-recht="foto" onclick="foto()">📷 Szenen-Foto</button>
+    <button class="b-clip" data-recht="clip" onclick="clip()">📋 Clip erstellen</button>
+    <button class="b-stop" id="btnstop" data-recht="stop" onclick="cmd('streamstop','Stream wirklich BEENDEN?')">⏹ Stream beenden</button>
+    <button class="b-rec" id="btnrec" data-recht="aufnahme" onclick="rec()">⏺ Aufnahme starten</button>
+  </div>
+  <h2 class="klapp sub" id="klapp-foto" data-akk="akk-foto" data-recht="foto" data-zudefault="1"><span>📷 Szenen-Foto</span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-foto">
+    <div id="fotohint">Tippe oben auf „📷 Szenen-Foto", um ein aktuelles Bild der Szene zu sehen.</div>
+    <img id="foto" alt="Aktuelles Szenenbild">
+  </div>
+  </div>
+
+  <h2 class="klapp" data-akk="akk-status" data-zudefault="1"><span>📊 Status · <span id="statuskurz" style="font-weight:400;color:var(--muted);">…</span></span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-status">
+  <h2 class="klapp sub" data-akk="akk-handy"><span>📱 Handy</span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-handy">
+  <div class="ampel">
+    <div class="k"><div class="t">Signal</div><div class="w" id="signal">–</div></div>
+    <div class="k"><div class="t">Bitrate (rein)</div><div class="w" id="hbitrate">–</div></div>
+    <div class="k"><div class="t">Verlust · Ping</div><div class="w" id="srtq" style="font-size:13px;">–</div></div>
+    <div class="k"><div class="t">Akku</div><div class="w" id="hakku">–</div></div>
+    <div class="k"><div class="t">Temperatur</div><div class="w" id="hflamme" style="font-size:13px;">–</div></div>
+    <div class="k"><div class="t">Signal-Ausfälle</div><div class="w" id="ausfsig" style="font-size:13px;">–</div></div>
+  </div>
+  </div>
+  <h2 class="klapp sub" data-akk="akk-server"><span>🖥 Server / OBS</span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-server">
+  <div class="ampel">
+    <div class="k"><div class="t">Bitrate (→Twitch)</div><div class="w" id="bitrate">–</div></div>
+    <div class="k"><div class="t">Verworfen (OBS→Twitch)</div><div class="w" id="drop">–</div></div>
+    <div class="k"><div class="t">Temperatur (CPU/GPU)</div><div class="w" id="temp">–</div></div>
+    <div class="k"><div class="t">CPU</div><div class="w" id="cpu">–</div></div>
+    <div class="k"><div class="t">RAM</div><div class="w" id="ram">–</div></div>
+    <div class="k"><div class="t">Twitch-Reconnects</div><div class="w" id="ausftw" style="font-size:13px;">–</div></div>
+    <div class="k"><div class="t">OBS</div><div class="w" id="obs">–</div></div>
+    <div class="k"><div class="t">Chat-Bot</div><div class="w" id="bot">–</div></div>
+    <div class="k"><div class="t">go-irl</div><div class="w" id="goirl">–</div></div>
+  </div>
+  </div>
+  </div>
+  <div id="proghint"></div>
+
+  <div id="twbereich" style="display:none">
+    <h2 class="klapp" data-akk="akk-tw" data-recht="sek-tw" data-zudefault="1"><span>🎬 Stream-Info (Twitch)</span><span class="chev">▾</span></h2>
+    <div class="akk" id="akk-tw">
+    <div id="twstatus" class="k" style="padding:14px;font-size:14px;"></div>
+    <div id="twform" style="display:none">
+      <input id="twtitle" class="twin" placeholder="Stream-Titel" maxlength="140">
+      <input id="twcatq" class="twin" placeholder="Kategorie suchen (z. B. Just Chatting)…">
+      <div id="twresults"></div>
+      <div style="margin-top:8px;font-size:14px;">Kategorie: <b id="twcatname" style="color:#ff9fd0;">–</b></div>
+      <button id="twsave" data-recht="twset" onclick="twSet()">Titel + Kategorie speichern</button>
+      <div id="twmsg" style="margin-top:8px;font-size:14px;min-height:18px;"></div>
+      <div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.12);padding-top:12px;">
+        <input id="raidziel" class="twin" placeholder="Raid-Ziel (Kanalname)…" style="margin-top:0;">
+        <button id="raidbtn" data-recht="raid" onclick="raid()" style="margin-top:10px;padding:13px 18px;border-radius:12px;background:linear-gradient(135deg,#ff5fa8,#e0245e);">🚀 Raid starten</button>
+        <div id="raidmsg" style="margin-top:8px;font-size:14px;min-height:18px;"></div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <h2 class="klapp" data-akk="akk-ort" data-recht="sek-ort" data-zudefault="1"><span>📍 Standort (Overlay)</span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-ort">
+  <div class="k" style="padding:12px;">
+    <input id="ortinput" class="twin" placeholder="Aktuelle Stadt, z. B. Berlin" maxlength="60" style="margin-top:0;">
+    <button id="ortsave" data-recht="ort" onclick="ortSpeichern()" style="margin-top:10px;padding:13px 18px;border-radius:12px;background:linear-gradient(135deg,#62b6e8,#3a8fd0);">Standort fürs Overlay setzen</button>
+    <div id="ortmsg" style="margin-top:8px;font-size:14px;min-height:18px;color:var(--muted)"></div>
+  </div>
+  </div>
+
+  <h2 class="klapp" data-akk="akk-verlauf" data-recht="sek-verlauf" data-zudefault="1"><span>📈 Verlauf (6 h)</span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-verlauf">
+  <div class="diagramm"><canvas id="cTemp"></canvas></div>
+  <div class="diagramm"><canvas id="cLast"></canvas></div>
+  <div class="diagramm"><canvas id="cStream"></canvas></div>
+  </div>
+
+  <h2 class="klapp" data-akk="akk-log" data-recht="sek-log" data-zudefault="1"><span>📋 Logbuch</span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-log">
+  <button id="kibtn" onclick="kiLog()" style="display:none;margin-bottom:8px;padding:12px 16px;border-radius:12px;background:linear-gradient(135deg,#5fd394,#2d9e75);">🤖 KI-Zusammenfassung</button>
+  <div id="kiout" style="display:none;background:var(--karte);border-radius:12px;padding:12px;font-size:14px;line-height:1.5;margin-bottom:8px;white-space:pre-wrap;"></div>
+  <div id="logbuch" class="k" style="max-height:240px;overflow-y:auto;font-size:13px;line-height:1.5;"></div>
+  </div>
+
+  <h2 class="klapp" data-akk="akk-hist" data-recht="sek-hist" data-zudefault="1"><span>📊 Stream-Historie</span><span class="chev">▾</span></h2>
+  <div class="akk" id="akk-hist">
+  <div id="streams" class="k" style="font-size:13px;line-height:1.6;"></div>
+  </div>
+
+  <!-- Admin-Bereich: nur fuer Admin sichtbar (wird per JS eingeblendet) -->
+  <div id="adminbereich" style="display:none">
+    <h2 class="klapp" data-akk="akk-admin" data-zudefault="1"><span>🔒 Admin</span><span class="chev">▾</span></h2>
+    <div class="akk" id="akk-admin">
+    <button class="b-idle" id="btnidle" onclick="idleAn()">💤 Ruhemodus</button>
+    <div style="margin-top:14px;font-weight:600;font-size:14px;">Rechte (was Streamer / Mod dürfen)</div>
+    <div id="rechtehint" style="font-size:12px;color:var(--muted);margin:4px 0 8px;">Haken setzen = erlaubt. Admin darf immer alles.</div>
+    <div id="rechtematrix"></div>
+    <button id="rechtesave" onclick="rechteSpeichern()" style="margin-top:10px;padding:13px 18px;border-radius:12px;background:linear-gradient(135deg,#5fd394,#2d9e75);">Rechte speichern</button>
+    <div id="rechtemsg" style="margin-top:8px;font-size:14px;min-height:18px;color:var(--muted)"></div>
+    </div>
+  </div>
+
+  <a id="abmelden" href="/logout">Abmelden</a>
+  <div id="fusstipp">Tipp: Größe anpassen? Oben auf „↔ Größe" tippen – dann erscheinen die S · M · L-Knöpfe in jeder Überschrift. Nochmal tippen sperrt sie wieder.</div>
+
+<script>
+const $=id=>document.getElementById(id);
+function farbe(el,v,w,b){el.className="w "+(v>=b?"bad":v>=w?"warn":"ok");}
+function fehler(t){const f=$("fehlerbalken");if(t){f.textContent=t;f.style.display="block";}else f.style.display="none";}
+
+let _rechte=null;
+function darf(f){ return _admin || !!(_rechte && _rechte[f]); }
+function rechteAnwenden(){
+  document.querySelectorAll("[data-recht]").forEach(function(el){
+    const ok=darf(el.dataset.recht);
+    if(el.tagName==="H2"){
+      el.style.display = ok ? "" : "none";
+      const z = el.dataset.akk && document.getElementById(el.dataset.akk);
+      if(z) z.style.display = ok ? "" : "none";   // erlaubt: Accordion (.zu) steuert
+    } else {
+      el.style.display = ok ? "" : "none";
+    }
+  });
+}
+async function whoami(){
+  try{const r=await fetch("/api/whoami");const u=await r.json();
+    $("hallo").textContent="Hallo "+u.name+(u.rolle==="admin"?" (Admin)":u.rolle==="voll"?" (Streamer)":" (Mod)");
+    _kanal=u.kanal||""; _admin=!!u.admin; _rechte=u.rechte||{};
+    rechteAnwenden();
+    if(darf("sek-tw")){$("twbereich").style.display="block";twLoad();}
+    else{$("twbereich").style.display="none";}
+    if(u.rolle==="voll"||u.rolle==="admin"){$("kibtn").style.display="inline-block";}
+    if(_admin){$("adminbereich").style.display="block";rechteLaden();}
+    if($("akk-twchat")&&darf("sek-twchat")&&!$("akk-twchat").classList.contains("zu"))twChatLaden();
+  }catch(e){}
+}
+
+// ---- Admin: Rechte-Matrix ----
+const RECHT_LABEL={standby:"Start (Soon)",live:"Live",brb:"BRB-Pause",ende:"Ende-Bild",
+  stop:"Stream beenden",foto:"Szenen-Foto",clip:"Clip erstellen",raid:"Raid",
+  aufnahme:"Aufnahme",twset:"Titel/Kategorie",ort:"Standort setzen",
+  "sek-steuer":"Bereich: Steuerung","sek-foto":"Bereich: Szenen-Foto",
+  "sek-twchat":"Bereich: Twitch-Chat","sek-chat":"Bereich: Mod-Chat",
+  "sek-tw":"Bereich: Stream-Info","sek-ort":"Bereich: Standort",
+  "sek-verlauf":"Bereich: Verlauf","sek-log":"Bereich: Logbuch","sek-hist":"Bereich: Historie"};
+async function rechteLaden(){
+  try{const r=await fetch("/api/rechte");const d=await r.json();
+    const feats=d.features||[]; const rc=d.rechte||{voll:{},mod:{}};
+    let h='<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+      +'<tr><th style="text-align:left;padding:4px;"></th>'
+      +'<th style="padding:4px;">Streamer</th><th style="padding:4px;">Mod</th></tr>';
+    feats.forEach(function(f){
+      const lab=RECHT_LABEL[f]||f;
+      const tr=f.indexOf("sek-")===0?' style="opacity:.85"':'';
+      h+='<tr'+tr+'><td style="padding:4px;border-top:1px solid rgba(255,255,255,.08);">'+lab+'</td>'
+        +'<td style="text-align:center;border-top:1px solid rgba(255,255,255,.08);"><input type="checkbox" data-r="voll" data-f="'+f+'"'+(rc.voll&&rc.voll[f]?" checked":"")+'></td>'
+        +'<td style="text-align:center;border-top:1px solid rgba(255,255,255,.08);"><input type="checkbox" data-r="mod" data-f="'+f+'"'+(rc.mod&&rc.mod[f]?" checked":"")+'></td></tr>';
+    });
+    h+='</table>';
+    $("rechtematrix").innerHTML=h;
+  }catch(e){$("rechtematrix").textContent="Konnte Rechte nicht laden.";}
+}
+async function rechteSpeichern(){
+  const rc={voll:{},mod:{}};
+  document.querySelectorAll('#rechtematrix input[type=checkbox]').forEach(function(c){
+    rc[c.dataset.r][c.dataset.f]=c.checked;
+  });
+  $("rechtemsg").textContent="⏳ …";
+  try{const r=await fetch("/api/rechte",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({rechte:rc})});
+    const j=await r.json();
+    $("rechtemsg").textContent=j.ok?"✅ Gespeichert. (Streamer/Mods sehen es nach Neuladen.)":"❌ Fehler beim Speichern";
+  }catch(e){$("rechtemsg").textContent="❌ "+e.message;}
+}
+async function status(){
+  try{
+    const r=await fetch("/api/status");const st=await r.json();
+    if(!st||st.cpu===undefined){fehler("");return;}
+    fehler("");
+    _slow=st;
+    const live=st.stream_aktiv===true;
+    $("bitrate").textContent=(st.bitrate_kbit?st.bitrate_kbit+" kbit/s":"–");
+    if(live&&st.sitzung){const n=(st.sitzung.signal_ausfaelle||0),tw=(st.sitzung.reconnects||0);
+      $("ausfsig").textContent=n?(n+"×"):"keine";$("ausfsig").className="w "+(n?"warn":"ok");
+      $("ausftw").textContent=tw?(tw+"×"):"keine";$("ausftw").className="w "+(tw?"warn":"ok");}
+    else{$("ausfsig").textContent="–";$("ausfsig").className="w";$("ausftw").textContent="–";$("ausftw").className="w";}
+    $("bot").textContent=st.chatbot?"läuft":"AUS";$("bot").className="w "+(st.chatbot?"ok":"bad");
+    if(st.goirl===true){$("goirl").textContent="läuft";$("goirl").className="w ok";}
+    else if(st.goirl===false){$("goirl").textContent="AUS";$("goirl").className="w bad";}
+    else{$("goirl").textContent="–";$("goirl").className="w";}
+  }catch(e){fehler("Keine Verbindung zum Server.");}
+}
+async function cmd(c,frage){
+  if(frage&&!confirm(frage))return;
+  $("meldung").textContent="⏳ …";
+  try{const r=await fetch("/api/cmd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cmd:c})});
+    const j=await r.json();$("meldung").textContent=j.ok?"✅ "+j.info:"❌ "+(j.fehler||"Fehler");
+  }catch(e){$("meldung").textContent="❌ "+e.message;}
+  setTimeout(liveUpdate,800);setTimeout(status,1500);setTimeout(()=>$("meldung").textContent="",8000);
+}
+function foto(){const a=$("akk-foto");if(a&&a.classList.contains("zu")){a.classList.remove("zu");const h=$("klapp-foto");if(h)h.classList.remove("zu");try{localStorage.setItem("akk:akk-foto","0");}catch(e){}}
+  const i=$("foto");$("fotohint").textContent="⏳ Foto …";$("fotohint").style.display="block";
+  i.onload=()=>{$("fotohint").style.display="none";i.style.display="block";};
+  i.onerror=()=>{$("fotohint").textContent="Kein Foto möglich (läuft OBS?)";};
+  i.src="/api/foto.jpg?t="+Date.now();}
+function twChatLaden(){
+  const f=$("twchat"),h=$("twchathint");
+  if(!_kanal){h.style.display="block";f.style.display="none";return;}
+  if(!f.src){f.src="https://www.twitch.tv/embed/"+encodeURIComponent(_kanal)+"/chat?parent="+location.hostname+"&darkpopout";}
+  f.style.display="block";h.style.display="none";
+}
+async function clip(){
+  $("meldung").textContent="📋 Clip wird erstellt …";
+  try{const j=await (await fetch("/api/twitch/clip",{method:"POST"})).json();
+    if(j.ok){$("meldung").innerHTML=j.url?('✅ Clip erstellt: <a href="'+j.url+'" target="_blank" style="color:#ff9fd0;">öffnen / bearbeiten</a>'):"✅ Clip erstellt";}
+    else $("meldung").textContent="❌ "+(j.fehler||"Fehler");
+  }catch(e){$("meldung").textContent="❌ "+e.message;}
+  setTimeout(()=>{$("meldung").innerHTML="";},20000);
+}
+async function raid(){
+  const z=$("raidziel").value.trim();
+  if(!z){$("raidmsg").textContent="Bitte Ziel-Kanal eingeben.";return;}
+  if(!confirm("Raid zu "+z+" starten?"))return;
+  $("raidmsg").textContent="🚀 …";
+  try{const j=await (await fetch("/api/twitch/raid",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ziel:z})})).json();
+    $("raidmsg").textContent=j.ok?("✅ "+j.info):"❌ "+(j.fehler||"Fehler");
+  }catch(e){$("raidmsg").textContent="❌ "+e.message;}
+}
+async function rec(){
+  const an=!_recAktiv;
+  if(!an&&!confirm("Aufnahme wirklich stoppen?"))return;
+  $("meldung").textContent="⏺ …";
+  try{const j=await (await fetch("/api/aufnahme",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({an})})).json();
+    $("meldung").textContent=j.ok?"✅ "+j.info:"❌ "+(j.fehler||"Fehler");
+  }catch(e){$("meldung").textContent="❌ "+e.message;}
+  setTimeout(liveUpdate,800);setTimeout(()=>{$("meldung").textContent="";},6000);
+}
+async function aufwecken(){
+  if(!confirm("Server aufwecken? OBS, go-irl und Chat-Bot werden gestartet (~30 s)."))return;
+  $("meldung").textContent="☀️ Wecke auf … (~30 s bis alles läuft)";
+  try{await fetch("/api/idle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({an:false})});}catch(e){}
+  setTimeout(liveUpdate,1500);setTimeout(()=>{$("meldung").textContent="";},25000);
+}
+async function idleAn(){
+  if(!confirm("Server in Ruhemodus? OBS, go-irl und Chat-Bot werden geschlossen."))return;
+  $("meldung").textContent="💤 Ruhemodus …";
+  try{await fetch("/api/idle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({an:true})});}catch(e){}
+  setTimeout(liveUpdate,1500);setTimeout(()=>{$("meldung").textContent="";},8000);
+}
+let _chatStand=0;
+let _chatAnzahl=0,_chatGesehen=0,_chatInit=false;
+let _recAktiv=false;
+let _kanal="";
+let _admin=false;
+let _slow={};
+function uhrz(ts){const d=new Date(ts*1000);return d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});}
+function chatZeit(ts){const d=new Date(ts*1000),n=new Date();
+  const hm=d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+  const g=new Date(n);g.setDate(n.getDate()-1);
+  if(d.toDateString()===n.toDateString())return "heute "+hm;
+  if(d.toDateString()===g.toDateString())return "gestern "+hm;
+  return d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})+" "+hm;}
+async function ladeChat(){
+  try{const r=await fetch("/api/chat");const m=await r.json();
+    const box=$("chat");
+    const neu=m.length>_chatAnzahl;
+    const _unten=box.scrollHeight-box.scrollTop-box.clientHeight<60;
+    box.innerHTML=m.map(x=>`<div class="msg"><b>${(x.name||"")}</b><span class="z">${chatZeit(x.zeit)}</span><br>${(x.text||"").replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</div>`).join("");
+    if(neu||_unten||!_chatInit){box.scrollTop=box.scrollHeight;requestAnimationFrame(()=>{box.scrollTop=box.scrollHeight;});}
+    if(!_chatInit){_chatInit=true;_chatGesehen=m.length;}
+    _chatAnzahl=m.length;
+    const offen=!$("akk-chat").classList.contains("zu");
+    if(offen)_chatGesehen=m.length;
+    const unread=Math.max(0,m.length-_chatGesehen);
+    const b=$("chatbadge");
+    if(!offen&&unread>0){b.textContent=unread>9?"9+":unread;b.style.display="inline-block";
+      if(neu&&navigator.vibrate)navigator.vibrate(60);}
+    else b.style.display="none";
+  }catch(e){}
+}
+async function sende(){
+  const i=$("chatinput");const t=i.value.trim();if(!t)return;i.value="";
+  try{await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})});}catch(e){}
+  ladeChat();
+}
+document.getElementById("chatinput").addEventListener("keydown",e=>{if(e.key==="Enter")sende();});
+let _gameId="";
+async function twLoad(){
+  try{const st=await (await fetch("/api/twitch/status")).json();
+    if(!st.konfig){$("twstatus").textContent="Twitch ist noch nicht eingerichtet (client_id/secret fehlen in der config).";return;}
+    if(!st.verbunden){$("twstatus").innerHTML='Noch nicht mit Twitch verbunden. <br><button id=\'twverbinden\' onclick="location.href=\'/twitch/login\'">Mit Twitch verbinden</button>';return;}
+    $("twstatus").textContent="Mit Twitch verbunden \u2705";$("twform").style.display="block";
+    const info=await (await fetch("/api/twitch/info")).json();
+    if(info&&info.title!==undefined){$("twtitle").value=info.title||"";$("twcatname").textContent=info.game_name||"–";_gameId=info.game_id||"";}
+  }catch(e){$("twstatus").textContent="Twitch-Status nicht abrufbar.";}
+}
+let _twTimer=null;
+function twSuche(){
+  const q=$("twcatq").value.trim();const box=$("twresults");
+  if(q.length<2){box.innerHTML="";return;}
+  clearTimeout(_twTimer);
+  _twTimer=setTimeout(async()=>{
+    try{const r=await (await fetch("/api/twitch/search?q="+encodeURIComponent(q))).json();
+      box.innerHTML=r.map(g=>`<div class="tr" data-id="${g.id}" data-n="${g.name.replace(/"/g,'&quot;')}">${g.name}</div>`).join("");
+      box.querySelectorAll(".tr").forEach(el=>el.onclick=()=>{_gameId=el.dataset.id;$("twcatname").textContent=el.dataset.n;box.innerHTML="";$("twcatq").value="";});
+    }catch(e){}
+  },350);
+}
+async function twSet(){
+  $("twmsg").textContent="\u23f3 …";
+  try{const r=await fetch("/api/twitch/set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:$("twtitle").value,game_id:_gameId})});
+    const j=await r.json();$("twmsg").textContent=j.ok?"\u2705 "+j.info:"\u274c "+(j.fehler||"Fehler");
+  }catch(e){$("twmsg").textContent="\u274c "+e.message;}
+}
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='twcatq')twSuche();});
+const _dark=matchMedia("(prefers-color-scheme: dark)").matches;
+if(window.Chart){Chart.defaults.color=_dark?"#cfa6d6":"#5a3a57";Chart.defaults.borderColor="rgba(255,255,255,.12)";}
+let _charts={};
+function diagramm(id,ds,einheit){
+  if(_charts[id])return _charts[id];
+  _charts[id]=new Chart($(id),{type:"line",data:{labels:[],datasets:ds},
+    options:{responsive:true,animation:false,spanGaps:true,
+      interaction:{mode:"index",intersect:false},
+      plugins:{legend:{labels:{boxWidth:14,font:{size:11}}}},
+      scales:{x:{ticks:{maxTicksLimit:6,font:{size:10}}},
+              y:{beginAtZero:true,ticks:{font:{size:10},callback:v=>v+" "+einheit}}}}});
+  return _charts[id];
+}
+async function verlaufLaden(){
+  try{let v=await (await fetch("/api/verlauf")).json();if(!v.length)return;
+    const _g=Date.now()/1000-6*3600; v=v.filter(p=>p.zeit>=_g); if(!v.length)return;
+    const lab=v.map(p=>new Date(p.zeit*1000).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}));
+    const c1=diagramm("cTemp",[{label:"CPU °C",data:[],borderColor:"#ffb84d",pointRadius:0,borderWidth:2},{label:"GPU °C",data:[],borderColor:"#ff6e96",pointRadius:0,borderWidth:2}],"°C");
+    c1.data.labels=lab;c1.data.datasets[0].data=v.map(p=>p.cpu_temp);c1.data.datasets[1].data=v.map(p=>p.gpu_temp);c1.update();
+    const c2=diagramm("cLast",[{label:"CPU %",data:[],borderColor:"#b48ae0",pointRadius:0,borderWidth:2},{label:"RAM %",data:[],borderColor:"#62b6e8",pointRadius:0,borderWidth:2}],"%");
+    c2.data.labels=lab;c2.data.datasets[0].data=v.map(p=>p.cpu);c2.data.datasets[1].data=v.map(p=>p.ram);c2.update();
+    const c3=diagramm("cStream",[{label:"Bitrate kbit/s",data:[],borderColor:"#5fd394",pointRadius:0,borderWidth:2,yAxisID:"y"},{label:"Drops %",data:[],borderColor:"#ff5fa8",pointRadius:0,borderWidth:2,yAxisID:"y2"}],"");
+    if(!c3.options.scales.y2){c3.options.scales.y2={position:"right",beginAtZero:true,max:25,grid:{drawOnChartArea:false},ticks:{font:{size:10},callback:v=>v+" %"}};}
+    c3.data.labels=lab;c3.data.datasets[0].data=v.map(p=>p.kbit);c3.data.datasets[1].data=v.map(p=>p.drop);c3.update();
+  }catch(e){}
+}
+function logIcon(t){return t==="alarm"?"⚠️":t==="ok"?"✅":t==="stream"?"🎬":t==="switch"?"🔁":t==="aktion"?"🎚️":"•";}
+function uhrdt(ts){const d=new Date(ts*1000);return d.toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}
+async function ladeLogbuch(){
+  try{const m=await (await fetch("/api/logbuch")).json();
+    $("logbuch").innerHTML=m.slice().reverse().map(e=>`<div>${logIcon(e.typ)} <span style="color:var(--muted)">${uhrdt(e.zeit)}</span> ${(e.text||"").replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</div>`).join("")||"Noch keine Ereignisse.";
+  }catch(e){}
+}
+async function ladeStreams(){
+  try{const m=await (await fetch("/api/streams")).json();
+    if(!m.length){$("streams").textContent="Noch keine Streams aufgezeichnet.";return;}
+    $("streams").innerHTML=m.slice().reverse().map(s=>`<div><span style="color:var(--muted)">${uhrdt(s.zeit)}</span> · ${s.dauer_min} Min · Drops ${s.drop} · ${s.reconnects}× Reconnect · ${s.ausfaelle}× Signal · max ${s.max_temp} °C</div>`).join("");
+  }catch(e){}
+}
+async function kiLog(){
+  $("kiout").style.display="block";$("kiout").textContent="🤖 KI denkt nach (kann ~30 s dauern) …";
+  try{const j=await (await fetch("/api/logbuch/ki")).json();$("kiout").textContent=j.text||j.fehler||"(keine Antwort)";}
+  catch(e){$("kiout").textContent="Fehler: "+e.message;}
+}
+whoami();status();ladeChat();verlaufLaden();
+setInterval(verlaufLaden,60000);
+async function ortLaden(){try{const o=(await (await fetch("/api/ort")).json()).ort||"";$("ortinput").value=o;}catch(e){}}
+async function ortSpeichern(){
+  const o=$("ortinput").value.trim();$("ortmsg").textContent="…";
+  try{const j=await (await fetch("/api/ort",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ort:o})})).json();
+    $("ortmsg").textContent=j.ok?("✓ Gesetzt: "+(j.ort||"(leer)")):"Fehler beim Speichern";}
+  catch(e){$("ortmsg").textContent="Fehler: "+e.message;}
+}
+async function szeneLaden(){try{const z=(await (await fetch("/api/szene")).json()).szene;if(z)$("szenebadge").innerHTML='<span style="color:var(--muted);font-weight:400;">Aktive Szene: </span>🎬 '+z;}catch(e){}}
+async function liveUpdate(){
+  try{
+    const l=await (await fetch("/api/live")).json();
+    const live=l.stream_aktiv===true;
+    $("punkt").className="punkt"+(live?" an":"");
+    let lt=live?(l.reconnect?"LIVE – verbindet neu!":"LIVE"):"Stream ist aus";
+    if(live&&_slow.sitzung&&_slow.sitzung.start){const m=Math.max(0,Math.round((Date.now()/1000-_slow.sitzung.start)/60));lt+=" · seit "+(m<60?m+" min":Math.floor(m/60)+" h "+(m%60)+" min");}
+    $("livetext").textContent=lt;
+    $("szenebadge").innerHTML=l.szene?('<span style="color:var(--muted);font-weight:400;">Aktive Szene: </span>🎬 '+l.szene):"";
+    $("obs").textContent=l.obs_offen?"läuft":"ZU!";$("obs").className="w "+(l.obs_offen?"ok":"bad");
+    const sig=l.handy_signal;
+    $("signal").textContent=sig===true?"kommt an":sig===false?"FEHLT!":"–";
+    $("signal").className="w "+(sig===true?"ok":sig===false?"bad":"");
+    if(l.srt_kbit){$("hbitrate").textContent=l.srt_kbit+" kbit/s";$("hbitrate").className="w "+(l.srt_kbit<1000?"bad":l.srt_kbit<2500?"warn":"ok");}else{$("hbitrate").textContent="–";$("hbitrate").className="w";}
+    if(l.srt_loss!==undefined&&l.srt_loss!==null){$("srtq").textContent=l.srt_loss.toFixed(1)+" %"+(l.srt_rtt?" · "+l.srt_rtt+" ms":"");farbe($("srtq"),l.srt_loss,1,3);}else{$("srtq").textContent="–";$("srtq").className="w";}
+    if(l.hakku!==undefined&&l.hakku!==null){$("hakku").textContent=l.hakku+"%"+(l.hladt?" 🔌":"");$("hakku").className="w "+(l.hakku<=20?"bad":l.hakku<=35?"warn":"ok");}else{$("hakku").textContent="–";$("hakku").className="w";}
+    if(l.hflamme){$("hflamme").textContent=l.hflamme;$("hflamme").className="w "+(l.hflamme==="kritisch"?"bad":l.hflamme==="heiß"?"warn":"ok");}else{$("hflamme").textContent="–";$("hflamme").className="w";}
+    let t=Math.max(_slow.cpu_temp||0,_slow.gpu_temp||0);
+    let q=(live&&_slow.frames_total)?100*(_slow.skipped_total||0)/_slow.frames_total:null;
+    let pr=[];
+    if(!l.obs_offen)pr.push("OBS aus");
+    if(_slow.chatbot===false)pr.push("Bot aus");
+    if(_slow.goirl===false)pr.push("go-irl aus");
+    if(t&&t>=90)pr.push("Temp hoch");
+    if(live&&sig===false)pr.push("Signal weg");
+    if(live&&q!==null&&q>=5)pr.push("viele Drops");
+    let k,f;
+    if(pr.length){k="⚠️ "+pr.join(", ");f="var(--bad)";}
+    else if(live){k="🔴 Live – alles ok";f="var(--ok)";}
+    else{k="✅ Stream bereit";f="var(--muted)";}
+    $("statuskurz").textContent=k;$("statuskurz").style.color=f;
+    const aus=[];if(!l.obs_offen)aus.push("OBS");if(_slow.chatbot===false)aus.push("Chat-Bot");if(_slow.goirl===false)aus.push("go-irl");
+    const ph=$("proghint");
+    if(aus.length){ph.style.display="block";ph.textContent="⚠️ "+aus.join(" + ")+" läuft nicht – der Wächter startet es automatisch neu (1-2 Min). Bleibt es rot: Admin melden.";}
+    else ph.style.display="none";
+    _recAktiv=l.aufnahme===true;
+    const rb=$("btnrec");
+    if(rb){if(_recAktiv){rb.textContent="⏹ Aufnahme stoppen"+(l.aufnahme_zeit?" ("+l.aufnahme_zeit.slice(0,8)+")":"");rb.className="b-recon";}else{rb.textContent="⏺ Aufnahme starten";rb.className="b-rec";}}
+    document.body.classList.toggle("idle", l.idle===true);
+    $("btnidle").style.display=(_admin && l.idle!==true)?"block":"none";
+    if(l.idle===true){
+      $("statuskurz").textContent="💤 Ruhemodus – zum Streamen aufwecken";
+      $("statuskurz").style.color="var(--muted)";
+      $("proghint").style.display="none";
+    }
+  }catch(e){}
+}
+let _sysN=0;
+async function sysUpdate(){
+  try{
+    const y=await (await fetch("/api/sys")).json();
+    const t=Math.max(y.cpu_temp||0,y.gpu_temp||0);
+    $("temp").textContent=t?t+" °C":"–";if(t)farbe($("temp"),t,80,90);else $("temp").className="w";
+    if(_sysN%3===0){
+      $("cpu").textContent=(y.cpu!=null?Math.round(y.cpu)+" %":"–");if(y.cpu!=null)farbe($("cpu"),y.cpu,80,92);
+      $("ram").textContent=(y.ram!=null?Math.round(y.ram)+" %":"–");if(y.ram!=null)farbe($("ram"),y.ram,80,92);
+      $("drop").textContent=(y.drop==null)?"–":y.drop.toFixed(1)+" %";if(y.drop!=null)farbe($("drop"),y.drop,2,5);
+    }
+    _sysN++;
+  }catch(e){}
+}
+liveUpdate();setInterval(liveUpdate,5000);
+sysUpdate();setInterval(sysUpdate,10000);
+ladeLogbuch();ladeStreams();ortLaden();
+setInterval(ladeLogbuch,30000);setInterval(ladeStreams,60000);
+setInterval(status,15000);setInterval(ladeChat,4000);
+function setKlapp(h,ziel,zu){ziel.classList.toggle("zu",zu);h.classList.toggle("zu",zu);}
+function akkInit(){
+  document.querySelectorAll("h2.klapp").forEach(function(h){
+    const id=h.dataset.akk, ziel=document.getElementById(id);
+    if(!ziel) return;
+    let v=null; try{v=localStorage.getItem("akk:"+id);}catch(e){}
+    const zu = (v===null) ? (h.dataset.zudefault==="1") : (v==="1");
+    setKlapp(h,ziel,zu);
+    h.addEventListener("click",function(){
+      const neu=!ziel.classList.contains("zu");
+      setKlapp(h,ziel,neu);
+      try{localStorage.setItem("akk:"+id,neu?"1":"0");}catch(e){}
+      if(id==="akk-verlauf" && !neu){verlaufLaden();}
+      if(id==="akk-twchat" && !neu){twChatLaden();}
+    });
+  });
+}
+akkInit();
+
+// Größe PRO BEREICH (S/M/L) – pro Gerät gemerkt. Jeder kann sich alles selbst anpassen.
+const GR_SEKTIONEN=["akk-steuer","akk-status","akk-twchat","akk-chat","akk-verlauf","akk-log","akk-hist"];
+function grBereich(akkId,s){
+  const a=document.getElementById(akkId); if(!a) return;
+  a.classList.remove("s","m","l"); a.classList.add(s);
+  const h=document.querySelector('h2.klapp[data-akk="'+akkId+'"]');
+  if(h){const sel=h.querySelector(".grsel");
+    if(sel) sel.querySelectorAll("button").forEach(function(b){b.classList.toggle("aktiv",b.dataset.s===s);});}
+  try{localStorage.setItem("gr:"+akkId,s);}catch(e){}
+}
+(function(){
+  GR_SEKTIONEN.forEach(function(akkId){
+    const h=document.querySelector('h2.klapp[data-akk="'+akkId+'"]');
+    if(!h) return;
+    const sel=document.createElement("span"); sel.className="grsel";
+    sel.addEventListener("click",function(e){e.stopPropagation();});  // nicht Bereich auf/zu klappen
+    ["s","m","l"].forEach(function(s){
+      const b=document.createElement("button"); b.textContent=s.toUpperCase(); b.dataset.s=s;
+      b.addEventListener("click",function(){grBereich(akkId,s);});
+      sel.appendChild(b);
+    });
+    h.insertBefore(sel, h.querySelector(".chev"));
+    let s="m"; try{s=localStorage.getItem("gr:"+akkId)||"m";}catch(e){}
+    grBereich(akkId,s);
+  });
+})();
+
+// Größen-Knöpfe ein-/ausblenden ("locken") – gemerkt pro Gerät
+function grLock(aus){
+  document.body.classList.toggle("groessen-aus", aus);
+  const b=$("grtoggle");
+  if(b){ b.textContent = aus ? "↔ Größe" : "🔒 Fertig"; b.classList.toggle("aktiv", !aus); }
+  try{localStorage.setItem("grlock", aus?"1":"0");}catch(e){}
+}
+(function(){ let lk=true; try{lk=localStorage.getItem("grlock")!=="0";}catch(e){} grLock(lk); })();
+
+</script>
+</body>
+</html>

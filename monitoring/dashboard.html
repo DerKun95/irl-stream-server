@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#241430">
+<title>Server-Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🐾</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --hg1:#f3e0f7; --hg2:#e8defa; --hg3:#fbe4ec;
+    --karte:rgba(255,255,255,.75); --text:#5a3a57; --titel:#8a4d84;
+    --muted:#a07ba0; --schatten:rgba(180,120,180,.18);
+    --ok:#3da064; --warn:#d98a00; --bad:#d33f6a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --hg1:#1e1230; --hg2:#2a1535; --hg3:#3b1a32;
+      --karte:rgba(255,255,255,.08); --text:#f6e7f7; --titel:#ff9fd0;
+      --muted:#cfa6d6; --schatten:rgba(0,0,0,.35);
+      --ok:#5fd394; --warn:#ffb84d; --bad:#ff6e96;
+    }
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif;
+         background:linear-gradient(160deg,var(--hg1),var(--hg2),var(--hg3));
+         background-attachment:fixed; min-height:100vh;
+         padding:14px 12px 40px; color:var(--text); }
+  h1 { font-size:22px; text-align:center; margin:4px 0 2px; color:var(--titel); }
+  #stand { text-align:center; font-size:12px; color:var(--muted); margin-bottom:12px; }
+  .karten { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .karte { background:var(--karte); border-radius:16px; padding:12px 14px;
+           box-shadow:0 2px 10px var(--schatten); }
+  .karte .titel { font-size:12px; color:var(--muted); letter-spacing:.5px; }
+  .karte .wert { font-size:24px; font-weight:700; margin-top:2px; color:var(--text); }
+  .ok { color:var(--ok) !important; } .warn { color:var(--warn) !important; }
+  .bad { color:var(--bad) !important; }
+  .breit { grid-column:1 / -1; }
+  #livezeile { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:700; }
+  .punkt { width:14px; height:14px; border-radius:50%; background:#888; flex:none; }
+  .punkt.an { background:#e0245e; box-shadow:0 0 10px #e0245e; animation:puls 1.4s infinite; }
+  @keyframes puls { 50% { opacity:.45; } }
+  #foto { width:100%; border-radius:14px; display:none; }
+  #fotohinweis { background:var(--karte); border-radius:14px; padding:22px 14px;
+                 text-align:center; font-size:14px; color:var(--muted); }
+  .knoepfe { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  button { border:0; border-radius:16px; padding:16px 10px; font-size:17px; font-weight:700;
+           color:#fff; box-shadow:0 3px 10px var(--schatten); cursor:pointer; }
+  button:active { transform:scale(.97); }
+  .b-standby { background:linear-gradient(135deg,#b48ae0,#8a5fd0); }
+  .b-live { background:linear-gradient(135deg,#ff5fa8,#e0245e); }
+  .b-brb { background:linear-gradient(135deg,#e0a83c,#c07a10); }
+  .b-stop { background:linear-gradient(135deg,#8d8da8,#5e5e78); }
+  .b-foto { background:linear-gradient(135deg,#62b6e8,#3a8fd0); grid-column:1 / -1; }
+  #meldung { text-align:center; margin:10px 0; min-height:22px; font-weight:600; }
+  h2 { font-size:15px; color:var(--titel); margin:18px 0 8px; }
+  .diagramm { background:var(--karte); border-radius:16px; padding:10px;
+              box-shadow:0 2px 10px var(--schatten); margin-bottom:12px; }
+  canvas { max-height:190px; }
+  #fehlerbalken { display:none; background:var(--bad); color:#fff; border-radius:12px;
+                  padding:10px 14px; text-align:center; margin-bottom:12px; font-size:14px; }
+</style>
+</head>
+<body>
+  <h1>🐾 Stream-Server</h1>
+  <div id="stand">verbinde ...</div>
+  <div id="fehlerbalken"></div>
+
+  <div class="karten">
+    <div class="karte breit"><div id="livezeile">
+      <div class="punkt" id="punkt"></div><span id="livetext">–</span>
+    </div></div>
+    <div class="karte"><div class="titel">CPU</div><div class="wert" id="cpu">–</div></div>
+    <div class="karte"><div class="titel">RAM</div><div class="wert" id="ram">–</div></div>
+    <div class="karte"><div class="titel">Temperatur</div><div class="wert" id="temp">–</div></div>
+    <div class="karte"><div class="titel">Bitrate zu Twitch</div><div class="wert" id="kbit">–</div></div>
+    <div class="karte"><div class="titel">Verworfene Frames</div><div class="wert" id="drop">–</div></div>
+    <div class="karte"><div class="titel">Handy-Signal</div><div class="wert" id="signal">–</div></div>
+    <div class="karte"><div class="titel">Ausfälle (Sitzung)</div><div class="wert" id="ausfall" style="font-size:16px;">–</div></div>
+    <div class="karte"><div class="titel">Internet-Tendenz</div><div class="wert" id="tendenz" style="font-size:16px;">–</div></div>
+    <div class="karte"><div class="titel">OBS</div><div class="wert" id="obs">–</div></div>
+    <div class="karte"><div class="titel">Chat-Bot</div><div class="wert" id="bot">–</div></div>
+  </div>
+
+  <div id="meldung"></div>
+  <div class="knoepfe">
+    <button class="b-standby" onclick="befehl('standby')">▶ Start (Soon)</button>
+    <button class="b-live" onclick="befehl('live','Auf LIVE-Kamera schalten?')">🔴 Live</button>
+    <button class="b-brb" onclick="befehl('brb')">⏸ BRB-Pause</button>
+    <button class="b-stop" onclick="befehl('streamstop','Stream wirklich BEENDEN?')">⏹ Stream beenden</button>
+    <button class="b-foto" onclick="fotoLaden()">📷 Szenen-Foto holen</button>
+  </div>
+
+  <h2>📷 Aktuelle Szene</h2>
+  <div id="fotohinweis">Noch kein Foto geladen.<br>Auf den blauen Knopf tippen – das Foto
+    wird nur auf Abfrage gemacht (schont OBS und Datenvolumen).</div>
+  <img id="foto" alt="Szenen-Foto">
+
+  <h2>📈 Verlauf (letzte 24 h)</h2>
+  <div class="diagramm"><canvas id="cTemp"></canvas></div>
+  <div class="diagramm"><canvas id="cLast"></canvas></div>
+  <div class="diagramm"><canvas id="cStream"></canvas></div>
+
+<script>
+const KEY = new URLSearchParams(location.search).get("key") || "";
+const Q = KEY ? "?key=" + encodeURIComponent(KEY) : "";
+const $ = id => document.getElementById(id);
+const DUNKEL = matchMedia("(prefers-color-scheme: dark)").matches;
+if (window.Chart && DUNKEL) {
+  Chart.defaults.color = "#cfa6d6";
+  Chart.defaults.borderColor = "rgba(255,255,255,.12)";
+}
+
+function dauerText(start) {
+  const m = Math.max(0, Math.round((Date.now()/1000 - start) / 60));
+  return m < 60 ? m + " min" : Math.floor(m/60) + " h " + (m%60) + " min";
+}
+function farbe(el, wert, warn, bad) {
+  el.className = "wert " + (wert >= bad ? "bad" : wert >= warn ? "warn" : "ok");
+}
+function zeigeFehler(text) {
+  const f = $("fehlerbalken");
+  if (text) { f.textContent = text; f.style.display = "block"; }
+  else f.style.display = "none";
+}
+
+async function statusLaden() {
+  try {
+    const r = await fetch("/api/status" + Q);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const st = await r.json();
+    if (!st || st.cpu === undefined) { $("stand").textContent =
+      "Wächter sammelt noch Daten – gleich geht's los ..."; return; }
+    zeigeFehler("");
+    const alter = Math.round((Date.now()/1000 - st.zeit) / 60);
+    $("stand").textContent = "Stand: " + new Date(st.zeit*1000)
+      .toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) +
+      " Uhr" + (alter > 2 ? " (" + alter + " Min alt!)" : "");
+
+    $("cpu").textContent = Math.round(st.cpu) + " %"; farbe($("cpu"), st.cpu, 80, 92);
+    $("ram").textContent = Math.round(st.ram) + " %"; farbe($("ram"), st.ram, 80, 92);
+    const t = Math.max(st.cpu_temp || 0, st.gpu_temp || 0);
+    $("temp").textContent = t ? t + " °C" : "n/a"; farbe($("temp"), t, 80, 90);
+
+    const live = st.stream_aktiv === true;
+    $("punkt").className = "punkt" + (live ? " an" : "");
+    let lt = live ? (st.reconnect ?
+      "LIVE – verbindet neu!" : "LIVE – Szene: " + (st.szene || "?")) : "Stream ist aus";
+    if (live && st.sitzung) lt += " · seit " + dauerText(st.sitzung.start);
+    $("livetext").textContent = lt;
+
+    if (live && st.sitzung) {
+      const si = st.sitzung;
+      const n = (si.signal_ausfaelle||0) + (si.reconnects||0);
+      $("ausfall").textContent = n ? (si.signal_ausfaelle + "× Signal · " +
+                                      si.reconnects + "× Twitch") : "keine";
+      $("ausfall").className = "wert " + (n ? "warn" : "ok");
+    } else { $("ausfall").textContent = "–"; $("ausfall").className = "wert"; }
+    const tz = st.tendenz;
+    $("tendenz").textContent = tz === "besser" ? "↗ bessert sich"
+      : tz === "schlechter" ? "↘ wird schlechter"
+      : tz === "stabil" ? "→ stabil" : "–";
+    $("tendenz").className = "wert " + (tz === "besser" ? "ok"
+      : tz === "schlechter" ? "bad" : "");
+
+    let q = null;
+    if (live && st.frames_total) q = 100 * (st.skipped_total||0) / st.frames_total;
+    $("drop").textContent = q === null ? "–" : q.toFixed(1) + " %";
+    if (q !== null) farbe($("drop"), q, 2, 5);
+    $("kbit").textContent = letzteKbit === null ? "–" : letzteKbit + " kbit/s";
+    $("kbit").className = "wert";
+
+    const s3 = [["signal", st.handy_signal, "kommt an", "FEHLT!", "–"],
+                ["obs", st.obs_offen, "läuft", "ZU!", "?"],
+                ["bot", st.chatbot, "läuft", "AUS!", "?"]];
+    for (const [id, val, ja, nein, unbek] of s3) {
+      $(id).textContent = val === true ? ja : val === false ? nein : unbek;
+      $(id).className = "wert " + (val === true ? "ok" : val === false ? "bad" : "");
+    }
+  } catch (e) {
+    zeigeFehler("Keine Verbindung zum Wächter – läuft er? (" + e.message + ")");
+  }
+}
+
+async function befehl(cmd, frage) {
+  if (frage && !confirm(frage)) return;
+  $("meldung").textContent = "⏳ wird ausgeführt ...";
+  try {
+    const r = await fetch("/api/cmd" + Q, { method:"POST",
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify({cmd}) });
+    const j = await r.json();
+    $("meldung").textContent = j.ok ? "✅ " + j.info : "❌ " + (j.fehler || "Fehler");
+  } catch (e) { $("meldung").textContent = "❌ " + e.message; }
+  setTimeout(statusLaden, 1500);
+  setTimeout(() => $("meldung").textContent = "", 8000);
+}
+
+function fotoLaden() {
+  const img = $("foto");
+  $("fotohinweis").textContent = "⏳ Foto wird gemacht ...";
+  $("fotohinweis").style.display = "block";
+  img.onload = () => { $("fotohinweis").style.display = "none";
+                       img.style.display = "block";
+                       img.scrollIntoView({behavior:"smooth", block:"center"}); };
+  img.onerror = () => { $("fotohinweis").textContent =
+    "Kein Foto möglich – läuft OBS?"; };
+  img.src = "/api/foto.jpg" + (Q ? Q + "&" : "?") + "t=" + Date.now();
+}
+
+let charts = {}, letzteKbit = null;
+function diagramm(id, datensaetze, einheit) {
+  if (charts[id]) { return charts[id]; }
+  charts[id] = new Chart($(id), { type:"line",
+    data:{ labels:[], datasets:datensaetze },
+    options:{ responsive:true, animation:false, spanGaps:true,
+      interaction:{ mode:"index", intersect:false },
+      plugins:{ legend:{ labels:{ boxWidth:14, font:{size:11} } } },
+      scales:{ x:{ ticks:{ maxTicksLimit:6, font:{size:10} } },
+               y:{ beginAtZero:true, ticks:{ font:{size:10},
+                   callback:v => v + " " + einheit } } } } });
+  return charts[id];
+}
+async function verlaufLaden() {
+  try {
+    const r = await fetch("/api/verlauf" + Q);
+    const v = await r.json();
+    if (!v.length) return;
+    const lab = v.map(p => new Date(p.zeit*1000)
+      .toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}));
+    const fuerKbit = [...v].reverse().find(p => p.kbit !== null);
+    letzteKbit = fuerKbit ? fuerKbit.kbit : null;
+
+    const c1 = diagramm("cTemp", [
+      { label:"CPU °C", data:[], borderColor:"#ffb84d", pointRadius:0, borderWidth:2 },
+      { label:"GPU °C", data:[], borderColor:"#ff6e96", pointRadius:0, borderWidth:2 }], "°C");
+    c1.data.labels = lab;
+    c1.data.datasets[0].data = v.map(p => p.cpu_temp);
+    c1.data.datasets[1].data = v.map(p => p.gpu_temp);
+    c1.update();
+
+    const c2 = diagramm("cLast", [
+      { label:"CPU %", data:[], borderColor:"#b48ae0", pointRadius:0, borderWidth:2 },
+      { label:"RAM %", data:[], borderColor:"#62b6e8", pointRadius:0, borderWidth:2 }], "%");
+    c2.data.labels = lab;
+    c2.data.datasets[0].data = v.map(p => p.cpu);
+    c2.data.datasets[1].data = v.map(p => p.ram);
+    c2.update();
+
+    const c3 = diagramm("cStream", [
+      { label:"Bitrate kbit/s", data:[], borderColor:"#5fd394", pointRadius:0,
+        borderWidth:2, yAxisID:"y" },
+      { label:"Drops %", data:[], borderColor:"#ff5fa8", pointRadius:0,
+        borderWidth:2, yAxisID:"y2" }], "");
+    if (!c3.options.scales.y2) {
+      c3.options.scales.y2 = { position:"right", beginAtZero:true, max:25,
+        grid:{ drawOnChartArea:false }, ticks:{ font:{size:10},
+        callback:v => v + " %" } };
+    }
+    c3.data.labels = lab;
+    c3.data.datasets[0].data = v.map(p => p.kbit);
+    c3.data.datasets[1].data = v.map(p => p.drop);
+    c3.update();
+  } catch (e) { }
+}
+
+statusLaden(); verlaufLaden();
+setInterval(statusLaden, 15000);
+setInterval(verlaufLaden, 60000);
+</script>
+</body>
+</html>

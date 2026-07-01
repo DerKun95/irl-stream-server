@@ -1,0 +1,4 @@
+# Installation:  python -m pip install -r requirements.txt
+psutil>=5.9
+requests>=2.31
+obsws-python>=1.7

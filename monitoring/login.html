@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#241430">
+<title>Login – Stream-Steuerung</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🐾</text></svg>">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100svh;
+       display:flex;align-items:center;justify-content:center;padding:24px;
+       background:linear-gradient(160deg,#1e1230,#2a1535,#3b1a32);color:#f6e7f7;}
+  .karte{width:100%;max-width:360px;background:rgba(255,255,255,.07);
+         border:1.5px solid rgba(184,154,234,.45);border-radius:22px;padding:28px 24px;
+         box-shadow:0 10px 30px rgba(0,0,0,.35);text-align:center;}
+  h1{font-size:22px;color:#ff9fd0;margin-bottom:4px;}
+  p.sub{font-size:13px;color:#cfa6d6;margin-bottom:22px;}
+  label{display:block;text-align:left;font-size:13px;color:#cfa6d6;margin:12px 0 4px;}
+  input{width:100%;padding:14px;border-radius:12px;border:1.5px solid rgba(184,154,234,.5);
+        background:rgba(255,255,255,.06);color:#fff;font-size:17px;}
+  input:focus{outline:none;border-color:#ff7fc3;}
+  button{width:100%;margin-top:22px;padding:15px;border:0;border-radius:14px;font-size:17px;
+         font-weight:700;color:#fff;background:linear-gradient(135deg,#ff5fa8,#b65fd0);}
+  button:active{transform:scale(.98);}
+  #fehler{margin-top:14px;color:#ff8aa6;font-size:14px;min-height:18px;}
+</style>
+</head>
+<body>
+  <div class="karte">
+    <h1>🐾 Stream-Steuerung</h1>
+    <p class="sub">Bitte anmelden</p>
+    <form id="f">
+      <label for="user">Benutzername</label>
+      <input id="user" name="user" autocapitalize="off" autocomplete="username" required>
+      <label for="pass">Passwort</label>
+      <input id="pass" name="pass" type="password" autocomplete="current-password" required>
+      <button type="submit">Anmelden</button>
+    </form>
+    <div id="fehler"></div>
+  </div>
+<script>
+  document.getElementById("f").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = new URLSearchParams({
+      user: document.getElementById("user").value,
+      pass: document.getElementById("pass").value });
+    document.getElementById("fehler").textContent = "…";
+    try {
+      const r = await fetch("/login", {method:"POST",
+        headers:{"Content-Type":"application/x-www-form-urlencoded"}, body});
+      if (r.ok) { location.href = "/"; }
+      else { const j = await r.json();
+        document.getElementById("fehler").textContent = j.fehler || "Anmeldung fehlgeschlagen"; }
+    } catch (err) { document.getElementById("fehler").textContent = "Verbindungsfehler"; }
+  });
+</script>
+</body>
+</html>

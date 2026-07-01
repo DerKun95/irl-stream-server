@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Start Soon Overlay</title>
+<script>
+// ============================================================
+//  HIER ANPASSEN:
+const KANALNAME   = "DEIN_KANAL";
+const ZEILE_GROSS = "GLEICH GEHT'S LOS";
+const ZEILE_KLEIN = "bleib dran 🐾";
+const FENSTER_TEXT = "☆ Highlights ☆";
+// FENSTER = true  -> kleines Clip-Fenster (Loch) anzeigen, Rest mit Pastell-Himmel
+//           false -> kein Fenster (alter Modus)
+const FENSTER = true;
+// HINTERGRUND nur auf false stellen, wenn KEIN Fenster genutzt wird und die
+// Clips ueber den GANZEN Bildschirm hinter dem Overlay laufen sollen.
+const HINTERGRUND = true;
+//
+//  Das Clip-Fenster sitzt bei:  x=578  y=440  Breite=764  Hoehe=430  (16:9)
+//  -> in OBS die VLC-Clip-Quelle genau auf diese Position/Groesse setzen.
+//
+// --- Spielereien ---
+const LADETEXT_CHANCE = 0;      // 0 = aus (keine Gag-Texte). Hoeher = wieder an.
+const LADE_TEXTE = [
+  "Hans wird überredet …",
+  "Pizza wird bestellt …",
+  "Boot wird zum Boot gemacht …",
+  "Sterne werden poliert …",
+  "Hund wird Gassi geführt …",
+  "Am Freitag ist ja schon wieder Freitag …",
+  "Akku wird gestreichelt …",
+  "Pommesgabel wird gewetzt … 🤘",
+];
+const TIERE = ["🐢","🐈","🐧","🐰","🦆","🦔","🦦","🐍"];  // zufaellige Hund-Verwandlungen
+const TIER_CHANCE = 0.05;       // Chance pro Hunde-Runde fuer eine Verwandlung
+const METAL_AN = true;          // 🤘 ab und zu einblenden
+// ============================================================
+</script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:1920px; height:1080px; overflow:hidden; background:transparent;
+              font-family:"Ink Free","Segoe Print","Comic Sans MS",cursive; }
+
+  /* Pastell-Himmel wie auf dem Banner */
+  #bg { position:absolute; inset:0;
+        background:linear-gradient(115deg,#f6cfd9,#e9c4ef,#d9bdf4,#f3d2c8,#eec9ec);
+        background-size:300% 300%; animation:wandern 26s ease infinite; }
+  @keyframes wandern { 0%{background-position:0% 50%} 50%{background-position:100% 50%}
+                       100%{background-position:0% 50%} }
+
+  /* Loch fuer das Clip-Fenster (x=578 y=470 B=764 H=430) */
+  .lochmaske {
+    -webkit-mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+    -webkit-mask-size: 100% 100%, 764px 430px;
+    -webkit-mask-position: 0 0, 578px 440px;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-composite: xor;
+    mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+    mask-size: 100% 100%, 764px 430px;
+    mask-position: 0 0, 578px 440px;
+    mask-repeat: no-repeat;
+    mask-composite: exclude; }
+
+  .wolke { position:absolute; background:rgba(255,255,255,.5);
+           border-radius:50%; filter:blur(55px);
+           animation:treiben linear infinite; }
+  @keyframes treiben { from{ transform:translateX(-500px); }
+                       to  { transform:translateX(2400px); } }
+
+  .stern { position:absolute; color:#ffffff; opacity:.95;
+           text-shadow:0 1px 6px rgba(255,255,255,.4);
+           animation:funkeln ease-in-out infinite; }
+  @keyframes funkeln { 0%,100%{ opacity:.45; transform:rotate(var(--rot)) scale(1); }
+                       50%{ opacity:1; transform:rotate(var(--rot)) scale(1.12); } }
+
+  #vignette { position:absolute; inset:0;
+              background:radial-gradient(ellipse at center,
+                         rgba(120,70,140,0) 35%, rgba(120,70,140,.28) 100%); }
+
+  /* Textblock im oberen Bereich */
+  #mitte { position:absolute; left:0; top:0; width:1920px; height:410px;
+           display:flex; flex-direction:column;
+           align-items:center; justify-content:center; text-align:center; }
+
+  #kanal { font-size:46px; font-weight:bold; letter-spacing:10px; color:#fff;
+           text-transform:lowercase; margin-bottom:8px;
+           text-shadow:2px 3px 0 rgba(214,140,190,.55), 0 0 26px rgba(255,255,255,.8); }
+
+  #gross { font-size:116px; font-weight:bold; color:#ffffff; letter-spacing:5px;
+           text-shadow:3px 5px 0 rgba(214,140,190,.6), 0 0 34px rgba(255,255,255,.9),
+                       0 0 80px rgba(245,180,230,.8);
+           animation:atmen 2.8s ease-in-out infinite; }
+  @keyframes atmen { 0%,100%{ transform:scale(1) rotate(-1deg); }
+                     50%{ transform:scale(1.03) rotate(1deg); } }
+
+  #klein { margin-top:18px; font-size:40px; color:#fff; letter-spacing:3px;
+           text-shadow:2px 3px 0 rgba(214,140,190,.5), 0 0 18px rgba(255,255,255,.7); }
+
+  #balken { margin-top:34px; width:680px; height:24px; border-radius:14px;
+            background:rgba(255,255,255,.4);
+            border:3px solid rgba(255,255,255,.95); overflow:hidden;
+            box-shadow:0 0 22px rgba(255,130,200,.85), 0 4px 0 rgba(214,140,190,.5),
+                       inset 0 0 10px rgba(255,255,255,.5); }
+  #balken div { width:42%; height:100%; border-radius:10px;
+                background:linear-gradient(90deg,#ff7fc3,#ff4fb0,#d36ff0);
+                box-shadow:0 0 18px rgba(255,80,180,.95);
+                animation:laufen 2.1s ease-in-out infinite; }
+  @keyframes laufen { 0%{transform:translateX(-130%)} 100%{transform:translateX(330%)} }
+
+  /* Rahmen ums Clip-Fenster (liegt UEBER dem Lochrand) */
+  #fenster { position:absolute; left:570px; top:432px; width:780px; height:446px;
+             border:5px solid rgba(255,255,255,.95); border-radius:18px;
+             box-shadow:0 0 26px rgba(255,140,200,.6), 0 5px 0 rgba(214,140,190,.45),
+                        inset 0 0 18px rgba(255,255,255,.35); }
+  #fenster .ecke { position:absolute; color:#fff; font-size:46px;
+                   text-shadow:0 0 14px rgba(255,150,210,.9); }
+  #fenstertext { position:absolute; left:570px; top:888px; width:780px;
+                 text-align:center; font-size:30px; color:#fff; letter-spacing:3px;
+                 text-shadow:2px 3px 0 rgba(214,140,190,.5), 0 0 16px rgba(255,255,255,.7); }
+
+  #uhr { position:absolute; bottom:44px; right:64px; font-size:48px; color:#fff;
+         text-shadow:2px 2px 0 rgba(214,140,190,.6); }
+
+  #hund { position:absolute; bottom:26px; left:-140px; font-size:84px;
+          animation:gassi 26s linear infinite;
+          filter:drop-shadow(0 4px 6px rgba(150,90,140,.45)); }
+  #hund span { display:inline-block; transform:scaleX(-1);
+               animation:hoppeln .5s ease-in-out infinite; }
+  @keyframes gassi { from{ left:-140px; } to{ left:2000px; } }
+  @keyframes hoppeln { 0%,100%{ transform:scaleX(-1) translateY(0) rotate(-3deg); }
+                       50%{ transform:scaleX(-1) translateY(-9px) rotate(3deg); } }
+
+  .spur { position:absolute; bottom:36px; font-size:34px; opacity:.85;
+          animation:verblassen 4.5s ease-out forwards; }
+  @keyframes verblassen { 0%{ opacity:.85; } 100%{ opacity:0; } }
+
+  /* Easter-Egg: Flugzeug fliegt kreuz und quer */
+  .flugzeug { position:absolute; font-size:58px; z-index:3; pointer-events:none;
+              filter:drop-shadow(0 3px 5px rgba(120,80,140,.4)); }
+
+  /* 🤘 Metal-Gruss */
+  .metal { position:absolute; font-size:96px; z-index:4; pointer-events:none;
+           filter:drop-shadow(0 4px 8px rgba(120,80,140,.5));
+           animation:metalpop 2.4s ease-out forwards; }
+  @keyframes metalpop {
+    0%{opacity:0; transform:scale(.3) rotate(-20deg);}
+    18%{opacity:1; transform:scale(1.28) rotate(8deg);}
+    34%{transform:scale(1) rotate(-4deg);}
+    80%{opacity:1; transform:scale(1) rotate(2deg);}
+    100%{opacity:0; transform:scale(1.12) rotate(0);} }
+
+  /* Gag-Ladetext unter dem Balken */
+  #ladetext { margin-top:14px; font-size:30px; color:#fff; min-height:38px;
+              letter-spacing:1px; transition:opacity .5s;
+              text-shadow:2px 2px 0 rgba(214,140,190,.5), 0 0 14px rgba(255,255,255,.7); }
+
+  /* Tag/Nacht-Toenung */
+  #tagnacht { position:absolute; inset:0; pointer-events:none;
+              transition:background 4s linear; }
+
+  /* saisonale fallende Teilchen */
+  .saison { position:absolute; top:-60px; pointer-events:none;
+            animation:fallen linear forwards; }
+  @keyframes fallen { to{ transform:translateY(1180px) rotate(300deg); } }
+</style>
+</head>
+<body>
+  <div id="bg"></div>
+  <div id="vignette"></div>
+  <div id="tagnacht"></div>
+  <div id="mitte">
+    <div id="kanal"></div>
+    <div id="gross"></div>
+    <div id="klein"></div>
+    <div id="balken"><div></div></div>
+    <div id="ladetext"></div>
+  </div>
+  <div id="fenster">
+    <div class="ecke" style="left:-10px;top:-30px;">✦</div>
+    <div class="ecke" style="right:-10px;top:-30px;">✧</div>
+    <div class="ecke" style="left:-10px;bottom:-30px;">✧</div>
+    <div class="ecke" style="right:-10px;bottom:-30px;">✦</div>
+  </div>
+  <div id="fenstertext"></div>
+  <div id="uhr"></div>
+  <div id="hund"><span>🐕</span></div>
+
+<script>
+  document.getElementById("kanal").textContent = KANALNAME;
+  document.getElementById("gross").textContent = ZEILE_GROSS;
+  document.getElementById("klein").textContent = ZEILE_KLEIN;
+  document.getElementById("fenstertext").textContent = FENSTER_TEXT;
+
+  if (!HINTERGRUND) document.getElementById("bg").style.display = "none";
+
+  if (FENSTER) {
+    document.getElementById("bg").classList.add("lochmaske");
+    document.getElementById("vignette").classList.add("lochmaske");
+    document.getElementById("tagnacht").classList.add("lochmaske");
+  } else {
+    document.getElementById("fenster").style.display = "none";
+    document.getElementById("fenstertext").style.display = "none";
+  }
+
+  // Fenster-Bereich, damit Sterne es nicht zudecken
+  function imFenster(x,y){ return FENSTER && x>540 && x<1380 && y>410 && y<895; }
+
+  if (HINTERGRUND) {
+    for (let i = 0; i < 7; i++) {
+      const w = document.createElement("div");
+      w.className = "wolke";
+      w.style.width  = (380 + Math.random() * 420) + "px";
+      w.style.height = (130 + Math.random() * 160) + "px";
+      w.style.top    = Math.random() * 950 + "px";
+      w.style.animationDuration = (60 + Math.random() * 70) + "s";
+      w.style.animationDelay = (-Math.random() * 90) + "s";
+      document.body.insertBefore(w, document.getElementById("vignette"));
+    }
+  }
+
+  const sternZeichen = ["☆","✩","✧"];
+  for (let i = 0; i < 22; i++) {
+    const left = Math.random() * 1840, top = Math.random() * 1000;
+    if (imFenster(left, top)) continue;   // nicht ins Clip-Fenster malen
+    const s = document.createElement("div");
+    s.className = "stern";
+    s.textContent = sternZeichen[Math.floor(Math.random() * sternZeichen.length)];
+    s.style.fontSize = (36 + Math.random() * 90) + "px";
+    s.style.left = left + "px";
+    s.style.top  = top + "px";
+    s.style.setProperty("--rot", (Math.random() * 50 - 25) + "deg");
+    s.style.animationDuration = (2.5 + Math.random() * 4) + "s";
+    s.style.animationDelay = (-Math.random() * 5) + "s";
+    document.body.insertBefore(s, document.getElementById("vignette"));
+  }
+
+  const hund = document.getElementById("hund");
+  setInterval(() => {
+    const x = hund.getBoundingClientRect().left;
+    if (x < 0 || x > 1880) return;
+    const p = document.createElement("div");
+    p.className = "spur";
+    p.textContent = "🐾";
+    p.style.left = (x + 14) + "px";
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 4600);
+  }, 850);
+
+  function uhr() {
+    const d = new Date();
+    const s = window._uhrSymbol || "";
+    document.getElementById("uhr").textContent =
+      s + " " + d.toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"}) + " Uhr";
+  }
+
+  // Tag/Nacht-Toenung + Sonne/Mond an der Uhr
+  function tageszeit() {
+    const h = new Date().getHours();
+    const tn = document.getElementById("tagnacht");
+    let farbe, symbol;
+    if (h >= 6 && h < 11)       { farbe = "rgba(255,240,200,.10)"; symbol = "🌅"; }
+    else if (h >= 11 && h < 17) { farbe = "rgba(255,255,255,0)";   symbol = "☀️"; }
+    else if (h >= 17 && h < 21) { farbe = "rgba(255,150,90,.18)";  symbol = "🌆"; }
+    else                        { farbe = "rgba(40,30,90,.34)";    symbol = "🌙"; }
+    tn.style.background = farbe;
+    window._uhrSymbol = symbol;
+  }
+  tageszeit(); uhr();
+  setInterval(uhr, 10000);
+  setInterval(tageszeit, 60000);
+
+  // Gag-Ladetexte (mal ja, mal nein)
+  const ladeEl = document.getElementById("ladetext");
+  function ladetext() {
+    if (Math.random() < LADETEXT_CHANCE) {
+      ladeEl.textContent = LADE_TEXTE[Math.floor(Math.random() * LADE_TEXTE.length)];
+      ladeEl.style.opacity = 1;
+    } else { ladeEl.style.opacity = 0; }
+  }
+  ladetext(); setInterval(ladetext, 6500);
+
+  // 🤘 Metal-Gruss zufaellig kurz einblenden
+  function metal() {
+    const m = document.createElement("div");
+    m.className = "metal"; m.textContent = "🤘";
+    m.style.left = (140 + Math.random() * 1540) + "px";
+    m.style.top  = (120 + Math.random() * 740) + "px";
+    document.body.appendChild(m);
+    setTimeout(() => m.remove(), 2500);
+    setTimeout(metal, 45000 + Math.random() * 75000);   // alle 45-120 s
+  }
+  if (METAL_AN) setTimeout(metal, 20000 + Math.random() * 30000);
+
+  // Saisonale Teilchen je nach Monat
+  function saisonEmoji() {
+    const m = new Date().getMonth();   // 0=Jan
+    if (m === 11 || m === 0 || m === 1) return "❄️";   // Winter
+    if (m >= 2 && m <= 4) return "🌸";                  // Fruehling
+    if (m >= 5 && m <= 7) return "🦋";                  // Sommer
+    return "🍂";                                        // Herbst (Sep-Nov)
+  }
+  function saisonTeilchen() {
+    const t = document.createElement("div");
+    t.className = "saison"; t.textContent = saisonEmoji();
+    t.style.left = (Math.random() * 1880) + "px";
+    t.style.fontSize = (22 + Math.random() * 22) + "px";
+    t.style.opacity = 0.55 + Math.random() * 0.4;
+    const dur = 9 + Math.random() * 7;
+    t.style.animationDuration = dur + "s";
+    document.body.insertBefore(t, document.getElementById("mitte"));
+    setTimeout(() => t.remove(), dur * 1000 + 300);
+  }
+  setInterval(saisonTeilchen, 7000);   // sparsam: ~alle 7 Sek ein Teilchen
+
+  // ✈️ Easter-Egg: ab und zu fliegt ein Flugzeug kreuz und quer durch
+  function flieg() {
+    const p = document.createElement("div");
+    p.className = "flugzeug"; p.textContent = "✈️";
+    const ltr = Math.random() < 0.5;
+    const y1 = 40 + Math.random() * 880, y2 = 40 + Math.random() * 880;
+    const x1 = ltr ? -180 : 2100, x2 = ltr ? 2100 : -180;
+    const ang = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+    const dur = 8000 + Math.random() * 7000;   // 8-15 s Flugdauer
+    p.style.left = x1 + "px"; p.style.top = y1 + "px";
+    p.style.transform = "rotate(" + (ang + 45) + "deg)";  // Nase in Flugrichtung
+    document.body.appendChild(p);
+    requestAnimationFrame(() => {
+      p.style.transition = "left " + dur + "ms linear, top " + dur + "ms linear";
+      p.style.left = x2 + "px"; p.style.top = y2 + "px";
+    });
+    setTimeout(() => p.remove(), dur + 400);
+    setTimeout(flieg, 180000 + Math.random() * 240000); // naechster Flug: zufaellig 3-7 min
+  }
+  setTimeout(flieg, 60000 + Math.random() * 60000);     // erster Flug nach ~1-2 min
+
+  // 🐢 Easter-Egg: ganz selten wird der Hund kurz zur Schildkroete
+  const hundSpan = document.querySelector("#hund span");
+  document.getElementById("hund").addEventListener("animationiteration", (e) => {
+    if (e.animationName === "gassi")            // einmal pro Runde wuerfeln
+      hundSpan.textContent = (Math.random() < TIER_CHANCE)
+        ? TIERE[Math.floor(Math.random() * TIERE.length)] : "🐕";
+  });
+</script>
+</body>
+</html>

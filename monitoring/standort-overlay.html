@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Standort-Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:transparent;overflow:hidden;
+            font-family:'Inter','Segoe UI',system-ui,sans-serif;color:#fff;
+            -webkit-font-smoothing:antialiased;}
+  #bar{position:fixed;left:34px;bottom:34px;display:flex;align-items:center;gap:18px;
+       padding:11px 20px;border-radius:16px;white-space:nowrap;
+       background:rgba(16,11,22,.40);
+       -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+       border:1px solid rgba(255,255,255,.14);
+       box-shadow:0 6px 22px rgba(0,0,0,.30);
+       text-shadow:0 1px 3px rgba(0,0,0,.45);}
+  .seg{display:flex;flex-direction:column;line-height:1.15;}
+  .trenner{width:1px;height:34px;background:rgba(255,255,255,.18);}
+  #uhr{font-size:30px;font-weight:600;letter-spacing:.5px;}
+  #datum{font-size:13px;font-weight:400;color:rgba(255,255,255,.66);
+         text-transform:capitalize;margin-top:2px;}
+  #ortzeile{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:600;}
+  .pin{width:11px;height:11px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+       background:#ff7fc3;display:inline-block;flex:none;box-shadow:0 0 0 2px rgba(255,127,195,.25);}
+  #wetterzeile{display:flex;align-items:center;gap:8px;font-size:14px;
+               color:rgba(255,255,255,.72);margin-top:3px;}
+  #wtemp{font-weight:600;color:#fff;font-size:15px;}
+  #wsymbol{font-size:17px;}
+  .leer{display:none !important;}
+</style>
+</head>
+<body>
+  <div id="bar">
+    <div class="seg">
+      <div id="uhr">--:--</div>
+      <div id="datum">&hellip;</div>
+    </div>
+    <div class="trenner leer" id="trenner"></div>
+    <div class="seg leer" id="ortblock">
+      <div id="ortzeile"><span class="pin"></span><span id="ort"></span></div>
+      <div id="wetterzeile" class="leer">
+        <span id="wsymbol"></span><span id="wtemp"></span><span id="wtext"></span>
+      </div>
+    </div>
+  </div>
+<script>
+"use strict";
+var WTAGE=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+var MONATE=["Januar","Februar","März","April","Mai","Juni","Juli","August",
+            "September","Oktober","November","Dezember"];
+
+function wmo(c){
+  if(c===0) return ["☀️","Klar"];
+  if(c===1) return ["🌤️","Überwiegend klar"];
+  if(c===2) return ["⛅","Teils bewölkt"];
+  if(c===3) return ["☁️","Bewölkt"];
+  if(c===45||c===48) return ["🌫️","Nebel"];
+  if(c>=51&&c<=57) return ["🌦️","Nieselregen"];
+  if(c>=61&&c<=67) return ["🌧️","Regen"];
+  if(c>=71&&c<=77) return ["❄️","Schnee"];
+  if(c>=80&&c<=82) return ["🌧️","Schauer"];
+  if(c===85||c===86) return ["🌨️","Schneeschauer"];
+  if(c===95) return ["⛈️","Gewitter"];
+  if(c>=96&&c<=99) return ["⛈️","Gewitter, Hagel"];
+  return ["🌡️",""];
+}
+
+function tick(){
+  var d=new Date();
+  var hh=String(d.getHours()).padStart(2,"0");
+  var mm=String(d.getMinutes()).padStart(2,"0");
+  document.getElementById("uhr").textContent=hh+":"+mm;
+  document.getElementById("datum").textContent=
+    WTAGE[d.getDay()]+", "+d.getDate()+". "+MONATE[d.getMonth()];
+}
+
+var aktOrt="", koord=null;
+
+async function ladeOrt(){
+  try{
+    var r=await fetch("/overlay/ort.json",{cache:"no-store"});
+    var ort=(await r.json()).ort||"";
+    if(ort!==aktOrt){ aktOrt=ort; koord=null; await geocode(); }
+  }catch(e){}
+  zeigeOrt();
+}
+
+function zeigeOrt(){
+  var block=document.getElementById("ortblock");
+  var trenner=document.getElementById("trenner");
+  if(aktOrt){
+    document.getElementById("ort").textContent=aktOrt;
+    block.classList.remove("leer"); trenner.classList.remove("leer");
+  }else{
+    block.classList.add("leer"); trenner.classList.add("leer");
+    document.getElementById("wetterzeile").classList.add("leer");
+  }
+}
+
+async function geocode(){
+  if(!aktOrt) return;
+  try{
+    var u="https://geocoding-api.open-meteo.com/v1/search?count=1&language=de&format=json&name="
+          +encodeURIComponent(aktOrt);
+    var j=await (await fetch(u)).json();
+    if(j.results&&j.results.length){
+      koord={lat:j.results[0].latitude, lon:j.results[0].longitude};
+      await ladeWetter();
+    }
+  }catch(e){}
+}
+
+async function ladeWetter(){
+  if(!koord) return;
+  try{
+    var u="https://api.open-meteo.com/v1/forecast?current=temperature_2m,weather_code&timezone=auto"
+          +"&latitude="+koord.lat+"&longitude="+koord.lon;
+    var c=(await (await fetch(u)).json()).current;
+    if(c){
+      var w=wmo(c.weather_code);
+      document.getElementById("wsymbol").textContent=w[0];
+      document.getElementById("wtemp").textContent=Math.round(c.temperature_2m)+"°C";
+      document.getElementById("wtext").textContent=w[1];
+      document.getElementById("wetterzeile").classList.remove("leer");
+    }
+  }catch(e){}
+}
+
+tick(); setInterval(tick,1000);
+ladeOrt(); setInterval(ladeOrt,60000);
+setInterval(ladeWetter,600000);
+</script>
+</body>
+</html>
